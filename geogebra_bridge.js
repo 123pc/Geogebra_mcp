@@ -17,8 +17,9 @@ class GeoGebraController {
   }
 
   async connect() {
+    const cdpPort = process.env.GEOGEBRA_CDP_PORT || '9222';
     this.browser = await puppeteer.connect({
-      browserURL: 'http://localhost:9222',
+      browserURL: `http://localhost:${cdpPort}`,
       defaultViewport: null
     });
     const pages = await this.browser.pages();

@@ -1,0 +1,19 @@
+# Smithery configuration: https://smithery.ai/docs/config#smitheryyaml
+
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      geogebraCdpPort:
+        type: number
+        default: 9222
+        description: Chrome DevTools Protocol port used by GeoGebra Classic 6. Must match --remote-debugging-port.
+  commandFunction: |-
+    (config) => ({
+      command: 'python',
+      args: ['geogebra_mcp_server.py'],
+      env: { GEOGEBRA_CDP_PORT: String(config.geogebraCdpPort || 9222) }
+    })
+  exampleConfig:
+    geogebraCdpPort: 9222

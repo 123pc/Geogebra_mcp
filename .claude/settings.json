@@ -2,7 +2,27 @@
   "permissions": {
     "allow": [
       "Bash(rtk git *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "mcp__MiniMax__web_search",
+      "WebFetch(domain:smithery.ai)",
+      "WebFetch(domain:blog.csdn.net)",
+      "WebFetch(domain:juejin.cn)",
+      "Bash(curl -s \"https://raw.githubusercontent.com/simon-ami/win-cli-mcp-server/main/smithery.yaml\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/nloui/paperless-mcp/main/smithery.yaml\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/lars-hagen/slack-user-mcp/main/smithery.yaml\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/nloui/paperless-mcp/refs/heads/main/smithery.yaml\")",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/sooperset/mcp-atlassian/refs/heads/main/smithery.yaml\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/simon-ami/win-cli-mcp-server/refs/heads/main/smithery.yaml\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/QuantGeekDev/coincap-mcp/refs/heads/main/smithery.yaml\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/LPX55/mcp-task-manager/refs/heads/main/smithery.yaml\")",
+      "Bash(curl -s \"https://registry.npmjs.org/coincap-mcp/latest\")",
+      "Bash(curl -s \"https://registry.npmjs.org/@modelcontextprotocol/server-filesystem/latest\")",
+      "Bash(node -e \"const d=[];process.stdin.on\\('data',c=>d.push\\(c\\)\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d.join\\(''\\)\\);console.log\\(JSON.stringify\\({name:j.name,version:j.version,description:j.description,type:j.type,bin:j.bin,main:j.main,scripts:j.scripts,keywords:j.keywords,dependencies:j.dependencies,engines:j.engines,files:j.files},null,2\\)\\)}\\)\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/kukapay/whale-tracker-mcp/refs/heads/main/smithery.yaml\")",
+      "Bash(curl -s \"https://registry.npmjs.org/@anthropic/geogebra-mcp/latest\")",
+      "Bash(node -e \"const d=[];process.stdin.on\\('data',c=>d.push\\(c\\)\\);process.stdin.on\\('end',\\(\\)=>{try{const j=JSON.parse\\(d.join\\(''\\)\\);console.log\\(JSON.stringify\\(j,null,2\\)\\)}catch\\(e\\){console.log\\('Not found or error:',e.message\\)}}\\)\")",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }

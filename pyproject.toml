@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "geogebra-mcp"
+version = "0.1.0"
+description = "MCP Server for controlling GeoGebra Classic 6 — draw mechanisms via AI"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1.0.0",
+    "websocket-client>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+]
+
+[project.scripts]
+geogebra-mcp-server = "geogebra_mcp_server:main"
+
+[tool.setuptools.package-data]
+"*" = ["geogebra_daemon.js", "geogebra_bridge.js", "package.json", "package-lock.json", "requirements.txt"]

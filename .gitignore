@@ -19,3 +19,17 @@ Thumbs.db
 
 # Output
 *.ggb.autosave
+
+# Smithery
+.smithery/
+smithery_build/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Launcher scripts (generated)
+start_geogebra.bat
+start_geogebra.command
+start_geogebra.sh

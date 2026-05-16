@@ -26,7 +26,8 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 
-const BROWSER_URL = 'http://localhost:9222';
+const CDP_PORT = process.env.GEOGEBRA_CDP_PORT || '9222';
+const BROWSER_URL = `http://localhost:${CDP_PORT}`;
 
 class GeoGebraDaemon {
   constructor() {

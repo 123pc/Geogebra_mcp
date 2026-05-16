@@ -21,6 +21,12 @@ import threading
 
 from mcp.server.fastmcp import FastMCP
 
+from auto_launcher import (
+    ensure_geogebra_running,
+    get_cdp_port,
+    geogebra_status_message,
+)
+
 # ── 守护进程管理器 ──
 
 NODE = "node"  # 依赖 PATH 环境变量，不再硬编码路径
@@ -34,7 +40,8 @@ class DaemonError(Exception):
 class GeoGebraDaemonClient:
     """管理 Node.js 守护进程，通过 stdin/stdout JSON 行协议通信"""
 
-    def __init__(self):
+    def __init__(self, cdp_port: int = None):
+        self.cdp_port = cdp_port or get_cdp_port()
         self.proc = None
         self._lock = threading.Lock()
         self._pending = {}
@@ -45,13 +52,16 @@ class GeoGebraDaemonClient:
         self._stderr_lines = []
 
     def start(self):
+        env = os.environ.copy()
+        env["GEOGEBRA_CDP_PORT"] = str(self.cdp_port)
         self.proc = subprocess.Popen(
             [NODE, DAEMON_JS],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            bufsize=1
+            bufsize=1,
+            env=env,
         )
         self._reader_thread = threading.Thread(target=self._read_responses, daemon=True)
         self._reader_thread.start()
@@ -168,10 +178,10 @@ class GeoGebraDaemonClient:
 
 _daemon = None
 
-def get_daemon():
+def get_daemon(cdp_port: int = None):
     global _daemon
     if _daemon is None:
-        _daemon = GeoGebraDaemonClient()
+        _daemon = GeoGebraDaemonClient(cdp_port=cdp_port)
         _daemon.start()
     return _daemon
 
@@ -434,15 +444,33 @@ async def geogebra_draw_mechanism(name: str, design_json: str, output_dir: str =
 # ── 主入口 ──
 
 def main():
-    """MCP Server 入口 - 通过 stdio 与 Claude Code 通信"""
-    # 后台启动守护进程
+    """MCP Server 入口 - 通过 stdio 与 Claude Code 通信，支持自动查找和启动 GeoGebra"""
+    port = get_cdp_port()
+    sys.stderr.write(f"[geogebra-mcp] CDP 端口: {port}\n")
+
+    # 第一次尝试：假设 GeoGebra 已在运行
     try:
-        get_daemon()
-        sys.stderr.write("[geogebra-mcp] 守护进程已连接\n")
+        get_daemon(cdp_port=port)
+        sys.stderr.write("[geogebra-mcp] 守护进程已连接到 GeoGebra\n")
     except DaemonError as e:
-        sys.stderr.write(f"[geogebra-mcp] 警告: {e}\n")
-        sys.stderr.write("[geogebra-mcp] 请确保 GeoGebra 已启动: --remote-debugging-port=9222\n")
-        # 不退出 - 让用户有机会启动 GeoGebra
+        sys.stderr.write(f"[geogebra-mcp] 连接失败: {e}\n")
+
+        # 第二次尝试：自动查找并启动 GeoGebra
+        sys.stderr.write("[geogebra-mcp] 正在搜索 GeoGebra Classic 6 安装...\n")
+        if ensure_geogebra_running(port=port):
+            sys.stderr.write("[geogebra-mcp] GeoGebra 已启动，重试连接...\n")
+            global _daemon
+            _daemon = None
+            try:
+                get_daemon(cdp_port=port)
+                sys.stderr.write("[geogebra-mcp] 守护进程已连接到自动启动的 GeoGebra\n")
+            except DaemonError as e2:
+                sys.stderr.write(f"[geogebra-mcp] 仍然失败: {e2}\n")
+                sys.stderr.write(geogebra_status_message(port=port) + "\n")
+        else:
+            sys.stderr.write("[geogebra-mcp] 未找到 GeoGebra Classic 6 安装\n")
+            sys.stderr.write(geogebra_status_message(port=port) + "\n")
+        # 服务器继续启动，进入降级模式；工具调用时守护进程会尝试重新连接
 
     asyncio.run(mcp.run_stdio_async())
 
