@@ -72,7 +72,7 @@ class GeoGebraDaemonClient:
         if not self._ready.wait(15):
             self.proc.kill()
             stderr_output = '\n'.join(self._stderr_lines[-10:])
-            raise DaemonError(f"守护进程启动超时\nstderr: {stderr_output}")
+            raise DaemonError(f"Daemon startup timeout / 守护进程启动超时\nstderr: {stderr_output}")
 
     def _read_stderr(self):
         """后台线程: 读取守护进程 stderr"""
@@ -126,30 +126,60 @@ class GeoGebraDaemonClient:
             except Exception:
                 break
 
-    def _call(self, method, params=None, timeout=30):
-        with self._lock:
-            self._next_id += 1
-            msg_id = str(self._next_id)
-            req = json.dumps({"id": msg_id, "method": method, "params": params or {}})
-            self._pending[msg_id] = None
+    def _restart(self):
+        """终止旧进程并重新启动守护进程（用于崩溃后自动恢复）。"""
+        old_proc = self.proc
+        if old_proc and old_proc.poll() is None:
             try:
-                self.proc.stdin.write(req + '\n')
-                self.proc.stdin.flush()
-            except BrokenPipeError:
-                raise DaemonError("守护进程已崩溃")
+                old_proc.terminate()
+                old_proc.wait(timeout=3)
+            except Exception:
+                old_proc.kill()
+        # 重置状态
+        self.proc = None
+        self._pending.clear()
+        self._ready.clear()
+        self._next_id = 0
+        self.start()
 
-        start = time.time()
-        while time.time() - start < timeout:
-            if self._pending.get(msg_id) is not None:
-                resp = self._pending.pop(msg_id)
-                if resp.get('ok'):
-                    return resp.get('result')
-                else:
-                    raise DaemonError(resp.get('error', 'Unknown error'))
-            time.sleep(0.01)
+    def _call(self, method, params=None, timeout=30):
+        retried = False
+        while True:
+            try:
+                with self._lock:
+                    self._next_id += 1
+                    msg_id = str(self._next_id)
+                    req = json.dumps({"id": msg_id, "method": method, "params": params or {}})
+                    self._pending[msg_id] = None
+                    try:
+                        self.proc.stdin.write(req + '\n')
+                        self.proc.stdin.flush()
+                    except BrokenPipeError:
+                        raise DaemonError("Daemon crashed / 守护进程已崩溃")
 
-        self._pending.pop(msg_id, None)
-        raise DaemonError(f"调用 '{method}' 超时 ({timeout}s)")
+                start = time.time()
+                while time.time() - start < timeout:
+                    if self._pending.get(msg_id) is not None:
+                        resp = self._pending.pop(msg_id)
+                        if resp.get('ok'):
+                            return resp.get('result')
+                        else:
+                            raise DaemonError(resp.get('error', 'Unknown error'))
+                    time.sleep(0.01)
+
+                self._pending.pop(msg_id, None)
+                raise DaemonError(f"Call timeout / 调用超时 '{method}' ({timeout}s)")
+
+            except DaemonError as e:
+                if retried:
+                    raise
+                retried = True
+                sys.stderr.write(f"[geogebra-mcp] Daemon disconnected ({e}), restarting... / 守护进程断开，正在重启...\n")
+                try:
+                    self._restart()
+                except DaemonError as restart_err:
+                    raise DaemonError(f"Daemon restart failed / 守护进程重启失败: {restart_err}")
+                # 重试写入（loop 回到开头）
 
     # ── 便捷方法 ──
     def status(self):           return self._call('status')
@@ -446,31 +476,31 @@ async def geogebra_draw_mechanism(name: str, design_json: str, output_dir: str =
 def main():
     """MCP Server 入口 - 通过 stdio 与 Claude Code 通信，支持自动查找和启动 GeoGebra"""
     port = get_cdp_port()
-    sys.stderr.write(f"[geogebra-mcp] CDP 端口: {port}\n")
+    sys.stderr.write(f"[geogebra-mcp] CDP port / CDP 端口: {port}\n")
 
-    # 第一次尝试：假设 GeoGebra 已在运行
+    # 第一次尝试：假设 GeoGebra 已在运行 / First attempt: assume GeoGebra is already running
     try:
         get_daemon(cdp_port=port)
-        sys.stderr.write("[geogebra-mcp] 守护进程已连接到 GeoGebra\n")
+        sys.stderr.write("[geogebra-mcp] Daemon connected / 守护进程已连接到 GeoGebra\n")
     except DaemonError as e:
-        sys.stderr.write(f"[geogebra-mcp] 连接失败: {e}\n")
+        sys.stderr.write(f"[geogebra-mcp] Connection failed / 连接失败: {e}\n")
 
-        # 第二次尝试：自动查找并启动 GeoGebra
-        sys.stderr.write("[geogebra-mcp] 正在搜索 GeoGebra Classic 6 安装...\n")
+        # 第二次尝试：自动查找并启动 GeoGebra / Second attempt: auto-detect and launch
+        sys.stderr.write("[geogebra-mcp] Searching for GeoGebra Classic 6... / 正在搜索...\n")
         if ensure_geogebra_running(port=port):
-            sys.stderr.write("[geogebra-mcp] GeoGebra 已启动，重试连接...\n")
+            sys.stderr.write("[geogebra-mcp] GeoGebra launched, retrying... / 已启动，重试连接...\n")
             global _daemon
             _daemon = None
             try:
                 get_daemon(cdp_port=port)
-                sys.stderr.write("[geogebra-mcp] 守护进程已连接到自动启动的 GeoGebra\n")
+                sys.stderr.write("[geogebra-mcp] Daemon connected to auto-launched GeoGebra / 已连接\n")
             except DaemonError as e2:
-                sys.stderr.write(f"[geogebra-mcp] 仍然失败: {e2}\n")
+                sys.stderr.write(f"[geogebra-mcp] Still failed / 仍然失败: {e2}\n")
                 sys.stderr.write(geogebra_status_message(port=port) + "\n")
         else:
-            sys.stderr.write("[geogebra-mcp] 未找到 GeoGebra Classic 6 安装\n")
+            sys.stderr.write("[geogebra-mcp] GeoGebra Classic 6 not found / 未找到安装\n")
             sys.stderr.write(geogebra_status_message(port=port) + "\n")
-        # 服务器继续启动，进入降级模式；工具调用时守护进程会尝试重新连接
+        # 服务器继续启动，进入降级模式 / Server starts in degraded mode; daemon reconnects on tool calls
 
     asyncio.run(mcp.run_stdio_async())
 

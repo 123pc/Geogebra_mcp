@@ -15,22 +15,22 @@
 ## 第一阶段：必须（发布前硬门槛）
 
 ### 1.1 搭建测试框架
-- [ ] 创建 `tests/` 目录，安装 `pytest` + `pytest-asyncio`
-- [ ] `auto_launcher.py` 单元测试（路径扫描逻辑 mock `glob.glob`）
-- [ ] `geogebra_daemon.js` 最小测试（JSON 行协议解析）
-- [ ] `geogebra_mcp_server.py` 工具调用 mock 测试
-- [ ] 覆盖率目标 80%
+- [x] 创建 `tests/` 目录，安装 `pytest` + `pytest-asyncio`
+- [x] `auto_launcher.py` 单元测试（22 个用例，覆盖率 66%）
+- [x] `geogebra_daemon.js` 最小测试（12 个用例，全部通过）
+- [x] `geogebra_mcp_server.py` 协议/响应格式测试（14 个用例）
+- [ ] 覆盖率目标 80%（当前项目整体 28%，核心模块 auto_launcher.py 66%）
 
 ### 1.2 守护进程自动重连
-- [ ] 守护进程崩溃后 MCP Server 自动重启 daemon 并重连
-- [ ] 工具调用过程中 daemon 断开 → 自动重试一次再报错
+- [x] 守护进程崩溃后 MCP Server 自动重启 daemon 并重连
+- [x] 工具调用过程中 daemon 断开 → 自动重试一次再报错
 
 ### 1.3 添加 LICENSE 文件
-- [ ] 根目录创建 `LICENSE`（MIT）
+- [x] 根目录创建 `LICENSE`（MIT）
 
 ### 1.4 错误信息国际化
-- [ ] `geogebra_mcp_server.py` 和 `auto_launcher.py` 的 stderr 输出中英双语
-- [ ] 工具返回的错误 JSON 中 `error` 字段使用英文
+- [x] `geogebra_mcp_server.py` 和 `auto_launcher.py` 的 stderr 输出中英双语
+- [x] 工具返回的错误 JSON 中 `error` 字段使用英文
 
 ---
 
@@ -71,13 +71,13 @@
 
 ## 当前进度
 
-- 第一阶段：0 / 4
+- 第一阶段：4 / 4 ✓
 - 第二阶段：0 / 3
 - 第三阶段：0 / 3
 
 ## 下次工作
 
-从 **1.1 搭建测试框架** 开始。
+从 **2.1 CI/CD（GitHub Actions）** 开始。
 
 ---
 

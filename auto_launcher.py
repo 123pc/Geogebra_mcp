@@ -159,12 +159,12 @@ def ensure_geogebra_running(port: int = None) -> bool:
 def geogebra_status_message(port: int = None) -> str:
     port = port or get_cdp_port()
     lines = [
-        f"GeoGebra Classic 6 CDP 端口: {port}",
-        "请确保已安装并启动 GeoGebra:",
+        f"GeoGebra Classic 6 CDP port: {port} / CDP 端口: {port}",
+        "Please ensure GeoGebra is installed and running: / 请确保已安装并启动 GeoGebra:",
     ]
     if sys.platform == "win32":
         lines.append(
-            '  Windows: "%LOCALAPPDATA%\\GeoGebra_6\\app-<版本>\\GeoGebra.exe"'
+            '  Windows: "%LOCALAPPDATA%\\GeoGebra_6\\app-<version>\\GeoGebra.exe"'
             f" --remote-debugging-port={port}"
         )
     elif sys.platform == "darwin":
@@ -173,5 +173,5 @@ def geogebra_status_message(port: int = None) -> str:
         )
     else:
         lines.append(f"  Linux: geogebra-classic --remote-debugging-port={port}")
-    lines.append("  下载: https://www.geogebra.org/download")
+    lines.append("  Download / 下载: https://www.geogebra.org/download")
     return "\n".join(lines)

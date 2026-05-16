@@ -22,7 +22,11 @@
       "Bash(curl -s \"https://raw.githubusercontent.com/kukapay/whale-tracker-mcp/refs/heads/main/smithery.yaml\")",
       "Bash(curl -s \"https://registry.npmjs.org/@anthropic/geogebra-mcp/latest\")",
       "Bash(node -e \"const d=[];process.stdin.on\\('data',c=>d.push\\(c\\)\\);process.stdin.on\\('end',\\(\\)=>{try{const j=JSON.parse\\(d.join\\(''\\)\\);console.log\\(JSON.stringify\\(j,null,2\\)\\)}catch\\(e\\){console.log\\('Not found or error:',e.message\\)}}\\)\")",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(pip install *)",
+      "Bash(python -m pytest tests/ -v --tb=short)",
+      "Bash(node /d/project/Geogebra_mcp/tests/test_daemon_protocol.js)",
+      "Bash(python -m pytest tests/ --cov=. --cov-report=term --cov-report=html --cov-branch)"
     ]
   }
 }
