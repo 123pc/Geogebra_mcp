@@ -37,18 +37,19 @@
 ## 第二阶段：建议（首批用户后）
 
 ### 2.1 CI/CD
-- [ ] GitHub Actions：push 自动跑 pytest
-- [ ] GitHub Actions：push 自动跑 ESLint（检查 .js 文件）
-- [ ] 打 tag `v*.*.*` 时自动发布到 PyPI
+- [x] GitHub Actions：push 自动跑 pytest（Python 3.10-3.13）
+- [x] GitHub Actions：push 自动跑 Node.js 协议测试
+- [x] 打 tag `v*.*.*` 时自动发布到 PyPI
 
 ### 2.2 版本管理
-- [ ] `geogebra_mcp_server.py` 内定义 `__version__`
-- [ ] 创建 `CHANGELOG.md`
-- [ ] 遵循语义化版本（Semantic Versioning）
+- [x] `geogebra_mcp_server.py` 内定义 `__version__` = "0.1.0"
+- [x] 创建 `CHANGELOG.md`
+- [x] `geogebra_version` 工具可查询版本
+- [x] 遵循语义化版本（Semantic Versioning）
 
 ### 2.3 依赖锁定
-- [ ] 明确 `mcp` 的最低兼容版本（而不是 `>=1.0.0` 一刀切）
-- [ ] `puppeteer-core` vs GeoGebra Chromium 版本兼容表
+- [x] `mcp>=1.0.0,<2.0.0` / `websocket-client>=1.0.0,<2.0.0`
+- [x] `puppeteer-core` vs GeoGebra Chromium 版本兼容表（README FAQ）
 
 ---
 
@@ -72,12 +73,12 @@
 ## 当前进度
 
 - 第一阶段：4 / 4 ✓
-- 第二阶段：0 / 3
+- 第二阶段：3 / 3 ✓
 - 第三阶段：0 / 3
 
 ## 下次工作
 
-从 **2.1 CI/CD（GitHub Actions）** 开始。
+从 **3.1 零门槛体验（自动下载 GeoGebra + 模板库）** 开始。
 
 ---
 

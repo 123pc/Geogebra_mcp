@@ -26,7 +26,9 @@
       "Bash(pip install *)",
       "Bash(python -m pytest tests/ -v --tb=short)",
       "Bash(node /d/project/Geogebra_mcp/tests/test_daemon_protocol.js)",
-      "Bash(python -m pytest tests/ --cov=. --cov-report=term --cov-report=html --cov-branch)"
+      "Bash(python -m pytest tests/ --cov=. --cov-report=term --cov-report=html --cov-branch)",
+      "Bash(git rm *)",
+      "Bash(python -m pytest tests/ -q)"
     ]
   }
 }

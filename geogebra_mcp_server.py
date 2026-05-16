@@ -21,6 +21,8 @@ import threading
 
 from mcp.server.fastmcp import FastMCP
 
+__version__ = "0.1.0"
+
 from auto_launcher import (
     ensure_geogebra_running,
     get_cdp_port,
@@ -304,6 +306,13 @@ async def geogebra_export_png(filepath: str, scale: int = 2) -> str:
         return json.dumps({"success": True, "path": result['saved']})
     except DaemonError as e:
         return json.dumps({"success": False, "error": str(e)})
+
+
+@mcp.tool()
+async def geogebra_version() -> str:
+    """返回 MCP Server 版本号。"""
+    import json as _json
+    return _json.dumps({"version": __version__})
 
 
 @mcp.tool()
