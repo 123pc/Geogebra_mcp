@@ -28,6 +28,9 @@ smithery_build/
 dist/
 build/
 *.egg-info/
+.coverage
+htmlcov/
+.pytest_cache/
 
 # Launcher scripts (generated)
 start_geogebra.bat
