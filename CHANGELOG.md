@@ -5,7 +5,7 @@
 ### Added
 - MCP Server with 11 tools for controlling GeoGebra Classic 6
 - Cross-platform auto-detection and auto-launch of GeoGebra (Windows/macOS/Linux)
-- One-click install wizard (`python setup.py`)
+- One-click install wizard (`python install_wizard.py`)
 - Daemon auto-reconnect on crash
 - Configurable CDP port via `GEOGEBRA_CDP_PORT` env var
 - MIT LICENSE

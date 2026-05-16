@@ -4,7 +4,7 @@
 
 - [x] 核心 MCP 工具（11 个）
 - [x] 跨平台自动查找 & 启动 GeoGebra
-- [x] 一键安装脚本 `setup.py`
+- [x] 一键安装脚本 `install_wizard.py`
 - [x] pip 可安装 `pyproject.toml`
 - [x] Docker 容器化
 - [x] README 文档
@@ -56,7 +56,7 @@
 ## 第三阶段：锦上添花（增长期）
 
 ### 3.1 零门槛体验
-- [ ] `setup.py` 支持自动下载 GeoGebra Classic 6（若未安装）
+- [ ] `install_wizard.py` 支持自动下载 GeoGebra Classic 6（若未安装）
 - [ ] 提供 `.ggb` 模板库（曲柄摇杆、四连杆、凸轮等常见机构）
 
 ### 3.2 演示 & 推广

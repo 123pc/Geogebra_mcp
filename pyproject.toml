@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=68.0", "wheel"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "geogebra-mcp"
@@ -23,5 +23,8 @@ dev = [
 [project.scripts]
 geogebra-mcp-server = "geogebra_mcp_server:main"
 
+[tool.setuptools]
+include-package-data = true
+
 [tool.setuptools.package-data]
-"*" = ["geogebra_daemon.js", "geogebra_bridge.js", "package.json", "package-lock.json", "requirements.txt"]
+"" = ["*.js", "package.json", "package-lock.json", "requirements.txt"]

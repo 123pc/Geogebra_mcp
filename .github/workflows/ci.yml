@@ -25,7 +25,7 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-asyncio pytest-cov
       - name: Test with pytest
-        run: pytest tests/ -v --tb=short --cov=. --cov-report=term
+        run: pytest tests/ -v --tb=short --cov=auto_launcher.py --cov=geogebra_mcp_server.py --cov-report=term
 
   node-tests:
     name: Node.js protocol tests
@@ -38,3 +38,28 @@ jobs:
           node-version: "18"
       - name: Run protocol tests
         run: node tests/test_daemon_protocol.js
+
+  build-check:
+    name: Build check (wheel)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build wheel
+        run: |
+          python -m pip install build
+          python -m build --wheel
+      - name: Verify wheel contents
+        run: |
+          python -c "
+          import zipfile, sys
+          wheel = __import__('glob').glob('dist/*.whl')[0]
+          names = zipfile.ZipFile(wheel).namelist()
+          print('\n'.join(names))
+          assert any('geogebra_daemon.js' in n for n in names), 'Missing geogebra_daemon.js'
+          assert any('geogebra_mcp_server.py' in n for n in names), 'Missing main server'
+          print('OK: Wheel contains required files')
+          "

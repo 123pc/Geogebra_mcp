@@ -17,6 +17,15 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Verify tag matches version
+        run: |
+          VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          TAG=${GITHUB_REF#refs/tags/v}
+          if [ "$VERSION" != "$TAG" ]; then
+            echo "Version mismatch: pyproject.toml=$VERSION vs tag=$TAG"
+            exit 1
+          fi
+          echo "Version check passed: $VERSION"
       - name: Install build tools
         run: |
           python -m pip install --upgrade pip
