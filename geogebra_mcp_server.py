@@ -23,7 +23,7 @@ from mcp.server.fastmcp import FastMCP
 
 # ── 守护进程管理器 ──
 
-NODE = r"D:\tool\Node\node.exe"
+NODE = "node"  # 依赖 PATH 环境变量，不再硬编码路径
 DAEMON_JS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "geogebra_daemon.js")
 
 
@@ -355,7 +355,7 @@ async def geogebra_get_objects() -> str:
 
 
 @mcp.tool()
-async def geogebra_draw_mechanism(name: str, design_json: str, output_dir: str = "D:/tool") -> str:
+async def geogebra_draw_mechanism(name: str, design_json: str, output_dir: str = "") -> str:
     """
     一站式机构绘制: 新建 → 执行命令 → 应用样式 → 保存 .ggb + PNG。
 
@@ -378,6 +378,8 @@ async def geogebra_draw_mechanism(name: str, design_json: str, output_dir: str =
     """
     try:
         design = json.loads(design_json)
+        if not output_dir:
+            output_dir = os.getcwd()
         d = get_daemon()
 
         d.new_construction()

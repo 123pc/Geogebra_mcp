@@ -34,7 +34,7 @@ cd Geogebra_mcp
 npm install
 
 # 3. 安装 Python 依赖
-pip install mcp
+pip install -r requirements.txt
 ```
 
 ## 启动 GeoGebra

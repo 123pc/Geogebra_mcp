@@ -14,7 +14,7 @@ import os
 import base64
 
 BRIDGE_JS = os.path.join(os.path.dirname(__file__), "geogebra_bridge.js")
-NODE = r"D:\tool\Node\node.exe"
+NODE = "node"  # 依赖 PATH 环境变量，不再硬编码路径
 
 
 def _run_bridge(args):
