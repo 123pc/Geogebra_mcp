@@ -49,6 +49,8 @@ class GeoGebraDaemonClient:
         self._next_id = 0
         self._reader_thread = None
         self._ready = threading.Event()
+        self._connected = False       # True when daemon confirms GeoGebra connection
+        self._last_status = None      # Last status message from daemon
         self._shutdown = False
         self._stderr_lines = []
 
@@ -113,9 +115,13 @@ class GeoGebraDaemonClient:
                     continue
                 resp = json.loads(line)
                 if resp.get('type') == 'ready':
+                    self._last_status = resp
+                    self._connected = bool(resp.get('connected'))
                     self._ready.set()
                     continue
                 if resp.get('type') == 'fatal':
+                    self._last_status = resp
+                    self._connected = False
                     self._stderr_lines.append(f"FATAL: {resp.get('error')}")
                     self._ready.set()
                     continue
@@ -143,48 +149,79 @@ class GeoGebraDaemonClient:
         self._next_id = 0
         self.start()
 
+    def _write_request_once(self, method, params=None, timeout=30):
+        """发送一条请求并等待响应。不处理重试和自动启动。"""
+        with self._lock:
+            self._next_id += 1
+            msg_id = str(self._next_id)
+            req = json.dumps({"id": msg_id, "method": method, "params": params or {}})
+            self._pending[msg_id] = None
+            try:
+                self.proc.stdin.write(req + "\n")
+                self.proc.stdin.flush()
+            except BrokenPipeError:
+                self._pending.pop(msg_id, None)
+                raise DaemonError("Daemon crashed / 守护进程已崩溃")
+
+        start = time.time()
+        while time.time() - start < timeout:
+            if self._pending.get(msg_id) is not None:
+                resp = self._pending.pop(msg_id)
+                if resp.get("ok"):
+                    return resp.get("result")
+                raise DaemonError(resp.get("error", "Unknown error"))
+            time.sleep(0.01)
+
+        self._pending.pop(msg_id, None)
+        raise DaemonError(f"Call timeout / 调用超时 '{method}' ({timeout}s)")
+
+    def _looks_like_geogebra_connection_error(self, error: Exception) -> bool:
+        """判断异常是否看起来像 GeoGebra 连接错误。"""
+        text = str(error).lower()
+        markers = [
+            "cannot connect to geogebra",
+            "unable to connect to geogebra",
+            "无法连接到 geogebra",
+            "connection refused",
+            "econnrefused",
+            "cdp",
+            "not connected",
+            "target closed",
+            "websocket",
+        ]
+        return any(marker in text for marker in markers)
+
     def _call(self, method, params=None, timeout=30):
         retried = False
         while True:
             try:
-                with self._lock:
-                    self._next_id += 1
-                    msg_id = str(self._next_id)
-                    req = json.dumps({"id": msg_id, "method": method, "params": params or {}})
-                    self._pending[msg_id] = None
-                    try:
-                        self.proc.stdin.write(req + '\n')
-                        self.proc.stdin.flush()
-                    except BrokenPipeError:
-                        raise DaemonError("Daemon crashed / 守护进程已崩溃")
-
-                start = time.time()
-                while time.time() - start < timeout:
-                    if self._pending.get(msg_id) is not None:
-                        resp = self._pending.pop(msg_id)
-                        if resp.get('ok'):
-                            return resp.get('result')
-                        else:
-                            raise DaemonError(resp.get('error', 'Unknown error'))
-                    time.sleep(0.01)
-
-                self._pending.pop(msg_id, None)
-                raise DaemonError(f"Call timeout / 调用超时 '{method}' ({timeout}s)")
-
+                result = self._write_request_once(method, params, timeout)
+                # 更新连接状态
+                if method == "status" and isinstance(result, dict):
+                    self._connected = bool(result.get("connected"))
+                    self._last_status = result
+                else:
+                    self._connected = True
+                return result
             except DaemonError as e:
                 if retried:
                     raise
                 retried = True
 
-                # 如果守护进程还没连接上 GeoGebra，尝试自动启动
-                if not self._ready.is_set():
+                should_launch = (not self._connected) or self._looks_like_geogebra_connection_error(e)
+                if should_launch:
                     sys.stderr.write(
                         "[geogebra-mcp] GeoGebra not connected, attempting auto-launch... / 未连接，尝试自动启动...\n"
                     )
-                    if ensure_geogebra_running(port=self.cdp_port):
-                        sys.stderr.write("[geogebra-mcp] GeoGebra launched, restarting daemon... / 已启动，重启守护进程...\n")
+                    launched = ensure_geogebra_running(port=self.cdp_port)
+                    if launched:
+                        sys.stderr.write(
+                            "[geogebra-mcp] GeoGebra launch attempted, restarting daemon... / 已尝试启动，重启守护进程...\n"
+                        )
                     else:
-                        sys.stderr.write("[geogebra-mcp] Auto-launch failed / 自动启动失败\n")
+                        sys.stderr.write(
+                            "[geogebra-mcp] Auto-launch failed / 自动启动失败\n"
+                        )
 
                 sys.stderr.write(f"[geogebra-mcp] Daemon error ({e}), restarting... / 守护进程错误，正在重启...\n")
                 try:

@@ -58,7 +58,7 @@ class GeoGebraDaemon {
     if (this.connected) return true;
     const result = await this.connect();
     if (!result.connected) {
-      throw new Error(`无法连接到 GeoGebra: ${result.error}. 请确保 GeoGebra 以 --remote-debugging-port=9222 启动`);
+      throw new Error(`GEOGEBRA_NOT_CONNECTED: Cannot connect to GeoGebra at ${BROWSER_URL}: ${result.error}. Start GeoGebra Classic 6 with --remote-debugging-port=${CDP_PORT}`);
     }
     return true;
   }
@@ -245,6 +245,7 @@ async function main() {
     xml_set:    (p) => daemon.setXML(p.xml),
     base64:     ()   => daemon.getBase64(),
     status:     ()   => daemon.getStatus(),
+    connect:    ()   => daemon.connect(),
     perspective:(p) => daemon.setPerspective(p.perspective || 'G'),
     eval:       (p) => daemon.evalJS(p.code),
     objects:    ()   => daemon.getObjectNames(),

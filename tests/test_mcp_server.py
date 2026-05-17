@@ -3,9 +3,48 @@
 import json
 import sys
 import os
+import threading
 from unittest.mock import patch, MagicMock
 
 import pytest
+
+# ── Fake daemon client for testing connection-state logic ──
+
+from geogebra_mcp_server import GeoGebraDaemonClient, DaemonError
+
+
+class TestAutoLaunchWhenReadyButDisconnected:
+    """Task 1: Reproduce the exact Claude Code failure — daemon process is alive
+    (_ready is set) but GeoGebra is not connected (_connected is False)."""
+
+    def test_auto_launch_runs_when_daemon_ready_but_geogebra_disconnected(self):
+        client = GeoGebraDaemonClient(cdp_port=9222)
+        client._ready.set()
+        client._connected = False
+
+        calls = {"ensure": 0, "restart": 0}
+
+        def fake_ensure(port):
+            calls["ensure"] += 1
+            assert port == 9222
+            return True
+
+        def fake_restart():
+            calls["restart"] += 1
+            client._connected = True
+
+        def fake_write_then_fail(method, params=None, timeout=30):
+            raise DaemonError("GEOGEBRA_NOT_CONNECTED: Cannot connect to GeoGebra")
+
+        client._write_request_once = fake_write_then_fail
+        client._restart = fake_restart
+
+        with patch("geogebra_mcp_server.ensure_geogebra_running", fake_ensure):
+            with pytest.raises(DaemonError):
+                client._call("status")
+
+        assert calls["ensure"] == 1, f"Expected ensure_geogebra_running to be called once, got {calls['ensure']}"
+        assert calls["restart"] == 1, f"Expected restart to be called once, got {calls['restart']}"
 
 # Must mock the daemon BEFORE importing the MCP server module, because the
 # module-level singletons (NODE, DAEMON_JS) and class definitions run at import.

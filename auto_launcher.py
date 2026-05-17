@@ -184,13 +184,26 @@ def launch_geogebra(
     return None
 
 
+# ── 重启策略 ──
+
+def should_restart_existing_geogebra() -> bool:
+    """检查环境变量，决定是否自动终止已有的 GeoGebra 进程。默认不终止，保护用户未保存工作。"""
+    return os.environ.get("GEOGEBRA_RESTART_EXISTING", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "y",
+        "on",
+    }
+
+
 # ── 主入口 ──
 
 def ensure_geogebra_running(port: int = None) -> bool:
     """
     确保 GeoGebra 以调试模式运行。策略:
     1. CDP 已就绪 → 直接返回 True
-    2. 未就绪 → 杀掉旧 GeoGebra（普通启动的没有 CDP）
+    2. 未就绪且 opt-in → 杀掉旧 GeoGebra（普通启动的没有 CDP）
     3. 找到安装 → 以 --remote-debugging-port 重新启动
     """
     port = port or get_cdp_port()
@@ -199,9 +212,10 @@ def ensure_geogebra_running(port: int = None) -> bool:
     if is_cdp_ready(port=port):
         return True
 
-    # 2. 杀掉可能已运行的旧实例（没有 CDP 的）
-    _kill_existing_geogebra()
-    time.sleep(1.5)  # 等待端口释放
+    # 2. 仅在 opt-in 时杀掉旧实例（保护用户未保存工作）
+    if should_restart_existing_geogebra():
+        _kill_existing_geogebra()
+        time.sleep(1.5)
 
     # 3. 找到安装
     geogebra_path = find_geogebra_installation()
@@ -213,13 +227,14 @@ def ensure_geogebra_running(port: int = None) -> bool:
     if proc is None:
         return False
 
-    # 进程可能仍在运行但没有 CDP → 再杀一次，重试
+    # 进程可能仍在运行但没有 CDP → 仅在 opt-in 时再杀一次，重试
     if not is_cdp_ready(port=port):
-        _kill_existing_geogebra()
-        time.sleep(1.0)
-        proc = launch_geogebra(geogebra_path, port=port, wait=True, startup_timeout=30.0)
-        if proc is None:
-            return False
+        if should_restart_existing_geogebra():
+            _kill_existing_geogebra()
+            time.sleep(1.0)
+            proc = launch_geogebra(geogebra_path, port=port, wait=True, startup_timeout=30.0)
+            if proc is None:
+                return False
 
     return is_cdp_ready(port=port) or (proc is not None and proc.poll() is None)
 
