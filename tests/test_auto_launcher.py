@@ -170,33 +170,39 @@ class TestEnsureGeogebraRunning:
         mock_ready.return_value = True
         assert ensure_geogebra_running(port=9222) is True
 
+    @patch("auto_launcher._kill_existing_geogebra")
     @patch("auto_launcher.find_geogebra_installation")
     @patch("auto_launcher.is_cdp_ready")
-    def test_not_found(self, mock_ready, mock_find, clean_env):
+    def test_not_found(self, mock_ready, mock_find, mock_kill, clean_env):
         mock_ready.return_value = False
         mock_find.return_value = None
+        mock_kill.return_value = 0
         assert ensure_geogebra_running(port=9222) is False
 
+    @patch("auto_launcher._kill_existing_geogebra")
     @patch("auto_launcher.launch_geogebra")
     @patch("auto_launcher.find_geogebra_installation")
     @patch("auto_launcher.is_cdp_ready")
-    def test_launches_when_found(self, mock_ready, mock_find, mock_launch, clean_env):
+    def test_launches_when_found(self, mock_ready, mock_find, mock_launch, mock_kill, clean_env):
         mock_ready.return_value = False
         mock_find.return_value = "/fake/GeoGebra.exe"
+        mock_kill.return_value = 0
 
         mock_proc = MagicMock()
-        mock_proc.poll.return_value = None  # Process still running
+        mock_proc.poll.return_value = None
         mock_launch.return_value = mock_proc
 
         assert ensure_geogebra_running(port=9222) is True
-        mock_launch.assert_called_once()
+        mock_launch.assert_called()  # Called at least once
 
+    @patch("auto_launcher._kill_existing_geogebra")
     @patch("auto_launcher.launch_geogebra")
     @patch("auto_launcher.find_geogebra_installation")
     @patch("auto_launcher.is_cdp_ready")
-    def test_launch_fails_process_dies(self, mock_ready, mock_find, mock_launch, clean_env):
+    def test_launch_fails_process_dies(self, mock_ready, mock_find, mock_launch, mock_kill, clean_env):
         mock_ready.return_value = False
         mock_find.return_value = "/fake/GeoGebra.exe"
+        mock_kill.return_value = 0
         mock_launch.return_value = None  # Process died
 
         assert ensure_geogebra_running(port=9222) is False

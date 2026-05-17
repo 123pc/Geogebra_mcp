@@ -25,6 +25,7 @@ __version__ = "0.1.0"
 
 from auto_launcher import (
     ensure_geogebra_running,
+    find_geogebra_installation,
     get_cdp_port,
     geogebra_status_message,
 )
@@ -678,29 +679,39 @@ def main():
     port = get_cdp_port()
     sys.stderr.write(f"[geogebra-mcp] CDP port / CDP 端口: {port}\n")
 
-    # 第一次尝试：假设 GeoGebra 已在运行 / First attempt: assume GeoGebra is already running
+    # 尝试连接（假设 GeoGebra 已在运行）
+    sys.stderr.write("[geogebra-mcp] Attempting CDP connection... / 尝试连接 GeoGebra...\n")
     try:
         get_daemon(cdp_port=port)
-        sys.stderr.write("[geogebra-mcp] Daemon connected / 守护进程已连接到 GeoGebra\n")
+        sys.stderr.write("[geogebra-mcp] Daemon connected / 守护进程已连接\n")
     except DaemonError as e:
-        sys.stderr.write(f"[geogebra-mcp] Connection failed / 连接失败: {e}\n")
+        sys.stderr.write(f"[geogebra-mcp] CDP not reachable / 无法连接: {e}\n")
 
-        # 第二次尝试：自动查找并启动 GeoGebra / Second attempt: auto-detect and launch
-        sys.stderr.write("[geogebra-mcp] Searching for GeoGebra Classic 6... / 正在搜索...\n")
+        # 自动查找并启动 GeoGebra
+        sys.stderr.write("[geogebra-mcp] Auto-launching GeoGebra... / 自动启动 GeoGebra...\n")
+        sys.stderr.write("[geogebra-mcp]   1. Finding installation... / 查找安装...\n")
+        gg_path = find_geogebra_installation()
+        if gg_path:
+            sys.stderr.write(f"[geogebra-mcp]      Found / 找到: {gg_path}\n")
+        else:
+            sys.stderr.write("[geogebra-mcp]      Not found / 未找到\n")
+
+        sys.stderr.write("[geogebra-mcp]   2. Killing old instances... / 终止旧进程...\n")
+        sys.stderr.write("[geogebra-mcp]   3. Launching with CDP... / 启动调试模式...\n")
+
         if ensure_geogebra_running(port=port):
-            sys.stderr.write("[geogebra-mcp] GeoGebra launched, retrying... / 已启动，重试连接...\n")
+            sys.stderr.write("[geogebra-mcp]   4. CDP ready, retrying daemon... / 重试连接...\n")
             global _daemon
             _daemon = None
             try:
                 get_daemon(cdp_port=port)
-                sys.stderr.write("[geogebra-mcp] Daemon connected to auto-launched GeoGebra / 已连接\n")
+                sys.stderr.write("[geogebra-mcp]   5. Daemon connected / 连接成功\n")
             except DaemonError as e2:
-                sys.stderr.write(f"[geogebra-mcp] Still failed / 仍然失败: {e2}\n")
+                sys.stderr.write(f"[geogebra-mcp]   5. Still failed / 仍然失败: {e2}\n")
                 sys.stderr.write(geogebra_status_message(port=port) + "\n")
         else:
-            sys.stderr.write("[geogebra-mcp] GeoGebra Classic 6 not found / 未找到安装\n")
+            sys.stderr.write("[geogebra-mcp]   4. Launch failed or timeout / 启动失败或超时\n")
             sys.stderr.write(geogebra_status_message(port=port) + "\n")
-        # 服务器继续启动，进入降级模式 / Server starts in degraded mode; daemon reconnects on tool calls
 
     asyncio.run(mcp.run_stdio_async())
 
