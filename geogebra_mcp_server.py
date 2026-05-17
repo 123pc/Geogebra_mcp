@@ -226,18 +226,80 @@ mcp = FastMCP("geogebra")
 @mcp.tool()
 async def geogebra_exec(command: str) -> str:
     """
-    在 GeoGebra 中执行一条命令。支持所有 GeoGebra 命令语法。
+    Execute a GeoGebra command. To make a mechanism MOVE (animate),
+    you MUST create an angle slider and define points that depend on it.
 
-    常用示例:
-    - 创建点: "A = (0, 0)", "B = (3, 4)"
-    - 创建线段: "Segment(A, B)"
-    - 创建圆: "Circle(A, 3)"
-    - 创建角度滑块: "α = 30°"
-    - 创建向量点: "C = A + (2*cos(α), 2*sin(α))"
-    - 求交点: "P = Intersect(c1, c2, 1)"
+    ── COMMAND REFERENCE ──
+
+    POINTS:
+      A = (x, y)            — free point
+      A = (3, 4)
+      M = Midpoint(A, B)     — midpoint
+      P = Point(c, 0.5)      — point on curve c at parameter 0..1
+
+    ANGLE SLIDER (the KEY to animation):
+      α = 30°               — creates an angle slider. ALWAYS start with this
+      β = 60°               — for mechanisms needing a second angle
+      These become sliders. Use StartAnimation(α) to drive motion.
+
+    DEPENDENT POINTS (formulas using the angle):
+      A = O1 + (r*cos(α), r*sin(α))
+      A = (r*cos(α), r*sin(α))   — same when O1 is origin
+      X = (a*cos(α), b*sin(α))   — ellipse motion
+      These points MOVE when α changes. This is how animation works.
+
+    LINES & SEGMENTS:
+      Line(A, B)             — infinite line through A,B
+      Segment(A, B)          — segment between A,B
+      Ray(A, B)              — ray from A through B
+      PerpendicularLine(A, l)— line through A ⟂ l
+      ParallelLine(A, l)     — line through A ∥ l
+
+    CIRCLES & ARCS:
+      Circle(O, r)           — circle center O radius r
+      Circle(O, A)           — circle center O through point A
+      c = Circle(O1, 2)      — name it 'c' to reuse
+
+    INTERSECTIONS (critical for mechanisms):
+      P = Intersect(c1, c2)           — all intersections
+      P = Intersect(c1, c2, 1)        — FIRST intersection (use 1 or 2)
+      P = Intersect(c1, c2, 2)        — SECOND intersection
+      P = Intersect(Segment(A,B), c)  — segment-circle intersection
+
+    ANGLES:
+      Angle(A, O, B)         — ∠AOB in degrees
+
+    SLIDER (numeric):
+      r = 2                  — creates a numeric slider if value is a plain number
+      r = Slider(0, 5, 0.1)  — explicit slider(min, max, step)
+
+    TRANSFORMATIONS:
+      Rotate(A, α, O)        — rotate A around O by angle α
+      Dilate(A, s, O)        — dilate A from O by factor s
+      Translate(A, v)        — translate A by vector v
+
+    ANIMATION:
+      StartAnimation(α)       — start the slider α animating
+      StartAnimation()        — start all sliders
+      StopAnimation()         — stop all animations
+      SetAnimationSpeed(α, s) — set speed (0.1–10)
+      After building the mechanism, always call StartAnimation(angle_label)
+      and then geogebra_animate() for speed control.
+
+    MISC:
+      ZoomIn(1)              — zoom
+      ZoomOut(1)             — un-zoom
+      Pan(x, y)              — pan view
+
+    ── CRITICAL RULES ──
+    1. ALWAYS create an angle slider (eg α=30°) FIRST before dependent points
+    2. Dependent points use cos(α), sin(α) — they move when α animates
+    3. For linkages, define fixed pivots → slider → dependent points → segments
+    4. Intersect() with index 1 or 2 picks WHICH intersection to use
+    5. After all commands, call geogebra_animate() to start motion
 
     Args:
-        command: GeoGebra 命令字符串
+        command: GeoGebra command string (see reference above)
     """
     try:
         result = get_daemon().exec_cmd(command)
@@ -313,6 +375,96 @@ async def geogebra_version() -> str:
     """返回 MCP Server 版本号。"""
     import json as _json
     return _json.dumps({"version": __version__})
+
+
+@mcp.tool()
+async def geogebra_help(topic: str = "all") -> str:
+    """
+    获取 GeoGebra 命令和机构设计的帮助。在构建机构之前先调用此工具。
+
+    Args:
+        topic: "commands"=命令参考, "mechanisms"=机构模板, "animation"=动画, "all"=全部
+    """
+    help_text = _get_help(topic)
+    return json.dumps({"topic": topic, "help": help_text}, ensure_ascii=False)
+
+
+def _get_help(topic: str) -> str:
+    if topic == "commands":
+        return """
+GeoGebra COMMAND REFERENCE for mechanism drawing:
+
+POINTS: A=(x,y) | M=Midpoint(A,B) | P=Point(curve, param 0..1)
+ANGLE SLIDER: α=30° (creates a slider — animate this to drive the mechanism)
+DEPENDENT POINTS: A=O+(r*cos(α), r*sin(α)) — recalculated when α changes
+SEGMENTS: Segment(A,B) — drawn between two points
+CIRCLES: Circle(O, r) or Circle(O, A) | Always NAME circles for reuse: c1=Circle(A,5)
+INTERSECTIONS: P=Intersect(c1,c2,1) — index 1 or 2 picks which intersection point
+LINES: Line(A,B) (infinite) | Ray(A,B) | PerpendicularLine(A,l) | ParallelLine(A,l)
+ANGLES: Angle(A,O,B) — returns degrees | Angle(polygon_name) — all interior angles
+SLIDERS: r=2 (numeric slider) | r=Slider(0,5,0.1) (min,max,step)
+ANIMATION: StartAnimation(α) | StopAnimation() | SetAnimationSpeed(α, 0.5)
+TRANSFORM: Rotate(A, α, O) | Dilate(A, s, O) | Translate(A, v)
+MISC: ZoomIn(1) | ZoomOut(1) | Delete(A)
+
+RULES:
+1. α=30° creates an ANGLE slider (range 0°–360°)
+2. r=2 creates a NUMBER slider, NOT an angle
+3. Points using cos/sin of the angle slider will MOVE during animation
+4. Intersect(c1,c2,1) — ALWAYS specify the index (1 or 2)
+5. Name circles to use them in Intersect: c1=Circle(A,5)  NOT  Circle(A,5) alone
+"""
+    elif topic == "mechanisms":
+        return """
+MECHANISM TEMPLATES:
+
+CRANK-ROCKER (曲柄摇杆机构):
+  O1=(0,0)    O2=(d,0)    α=30°    (d=frame spacing, typically 6)
+  A=O1+(r*cos(α),r*sin(α))    (r=crank length, typically 2)
+  c1=Circle(A,L)               (L=coupler length, typically 5)
+  c2=Circle(O2,R)              (R=rocker length, typically 4)
+  B=Intersect(c1,c2,1)
+  Segment(O1,A)  Segment(A,B)  Segment(B,O2)
+  Then: geogebra_animate(label="α", animate=true, speed=0.5)
+  VALID IF: r+max(d,L,R) ≤ sum of other two (Grashof condition)
+
+SLIDER-CRANK (曲柄滑块机构):
+  O=(0,0)    α=30°    (O=fixed crank pivot)
+  A=O+(r*cos(α),r*sin(α))    (r=crank length, typically 2)
+  c=Circle(A,L)               (L=connecting rod, typically 5)
+  guide=Line((0,-r),(10,-r))  (horizontal guide)
+  B=Intersect(c,guide,1)
+  Segment(O,A)  Segment(A,B)  (slider is point B on the guide)
+  Then: geogebra_animate(label="α", animate=true, speed=0.5)
+
+DOUBLE-CRANK (双曲柄机构):
+  O1=(0,0)    O2=(d,0)    α=30°
+  A=O1+(r1*cos(α),r1*sin(α))
+  B=O2+(r2*cos(α+β),r2*sin(α+β))    (β=phase offset angle)
+  Segment(O1,A)  Segment(A,B)  Segment(B,O2)
+  Both cranks can rotate fully if Grashof satisfied.
+
+FOUR-BAR (四连杆机构) — general crank-rocker:
+  SAME as crank-rocker above. Adjust lengths.
+"""
+    elif topic == "animation":
+        return """
+ANIMATION HOW-TO:
+
+1. CREATE an angle slider: α=30° (or β=60°, or use any Greek letter)
+2. DEFINE points that depend on the slider using cos/sin:
+   A = O + (r*cos(α), r*sin(α))
+3. BUILD segments and circles using those points
+4. START animation: geogebra_animate(label="α", animate=true, speed=0.5)
+5. STOP animation: geogebra_animate(label="α", animate=false)
+
+The slider automatically cycles through 0°→360°, making all dependent
+points move along their paths. Use SetAnimationSpeed(α, s) to adjust.
+
+Speed values: 0.1=slow, 0.5=medium, 1.0=fast, 2.0=very fast
+"""
+    else:
+        return _get_help("commands") + "\n" + _get_help("mechanisms") + "\n" + _get_help("animation")
 
 
 @mcp.tool()
@@ -406,9 +558,40 @@ async def geogebra_get_objects() -> str:
 @mcp.tool()
 async def geogebra_draw_mechanism(name: str, design_json: str, output_dir: str = "") -> str:
     """
-    一站式机构绘制: 新建 → 执行命令 → 应用样式 → 保存 .ggb + PNG。
+    Create a complete mechanism: new construction → commands → styles → save .ggb + PNG.
+    Use geogebra_batch for commands instead of this tool unless you need one-step save.
 
-    design_json 格式:
+    ── MECHANISM TEMPLATES ──
+
+    **Crank-Rocker (曲柄摇杆):**
+    O1=(0,0)  O2=(d,0)  α=angle°  crank_len=r  coupler_len=L  rocker_len=R
+    A = O1 + (r*cos(α), r*sin(α))
+    c1 = Circle(A, L)
+    c2 = Circle(O2, R)
+    B = Intersect(c1, c2, 1)
+    Segment(O1, A)  Segment(A, B)  Segment(B, O2)
+    Animate: StartAnimation(α)  Style: thick segments, colored points
+
+    **Slider-Crank (曲柄滑块):**
+    O=(0,0)  α=angle°  r=crank  L=coupler
+    A = O + (r*cos(α), r*sin(α))
+    c = Circle(A, L)
+    guide = Line((0,-r), (10,-r))
+    B = Intersect(c, guide, 1)
+    Segment(O, A)  Segment(A, B)  Circle(B, 0.1)
+    Animate: StartAnimation(α)
+
+    **Double-Crank / Drag-Link:**
+    O1=(0,0)  O2=(d,0)  α=angle°  r1,r2=crank lengths  L=coupler
+    A = O1 + (r1*cos(α), r1*sin(α))
+    B = O2 + (r2*cos(α+offset), r2*sin(α+offset))
+    Segment(O1,A)  Segment(A,B)  Segment(B,O2)
+    Animate: StartAnimation(α)
+
+    **Four-Bar Linkage (general):**
+    Same as crank-rocker but adjust lengths. Valid if shortest+longest ≤ sum of other two.
+
+    ── design_json FORMAT ──
     {
       "perspective": "G",
       "animate": "α",
@@ -416,14 +599,22 @@ async def geogebra_draw_mechanism(name: str, design_json: str, output_dir: str =
       "commands": ["O1=(0,0)", "O2=(6,0)", "α=45°", ...],
       "styles": [
         {"label": "A", "color": [1,0,0], "point_size": 5},
-        {"label": "Segment(O1,A)", "thickness": 5}
+        {"label": "Segment(O1,A)", "thickness": 5},
+        {"label": "O1", "point_size": 6, "color": [0,0,0]}
       ]
     }
 
+    ── WORKFLOW ──
+    1. New construction (automatic)
+    2. Execute commands in order
+    3. Apply styles (colors, thickness, point sizes)
+    4. Start animation on the angle slider
+    5. Auto-zoom and save .ggb + .png
+
     Args:
-        name: 机构名称 (用于文件名)
-        design_json: 机构设计的 JSON 字符串
-        output_dir: 输出目录
+        name: Mechanism name (used for filename)
+        design_json: JSON string with design (see format above)
+        output_dir: Output directory (default: current working directory)
     """
     try:
         design = json.loads(design_json)

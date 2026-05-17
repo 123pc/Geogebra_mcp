@@ -108,8 +108,9 @@ export GEOGEBRA_CDP_PORT=9233  # macOS/Linux
 
 | 工具 | 说明 |
 |------|------|
-| `geogebra_exec` | 执行单条 GeoGebra 命令 |
+| `geogebra_exec` | 执行单条 GeoGebra 命令（含完整命令参考） |
 | `geogebra_batch` | 批量执行命令 |
+| `geogebra_help` | **获取 GeoGebra 命令/机构/动画帮助** |
 | `geogebra_new_construction` | 清空当前构造 |
 | `geogebra_save` | 保存为 `.ggb` 文件 |
 | `geogebra_export_png` | 导出 PNG 截图 |
@@ -119,7 +120,7 @@ export GEOGEBRA_CDP_PORT=9233  # macOS/Linux
 | `geogebra_set_appearance` | 设置颜色、线宽、点大小、可见性 |
 | `geogebra_animate` | 控制动画播放/停止 |
 | `geogebra_get_objects` | 列出当前构造中的所有对象 |
-| `geogebra_draw_mechanism` | 一站式机构绘制（新建 → 命令 → 样式 → 保存） |
+| `geogebra_draw_mechanism` | 一站式机构绘制（含曲柄摇杆/曲柄滑块/四连杆模板） |
 
 ## Smithery.ai 安装
 
