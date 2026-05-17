@@ -5,10 +5,30 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "geogebra-mcp"
 version = "0.1.0"
-description = "MCP Server for controlling GeoGebra Classic 6 — draw mechanisms via AI"
+description = "MCP Server for controlling GeoGebra Classic 6 — draw animated mechanisms via AI"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 requires-python = ">=3.10"
+authors = [
+    {name = "123pc"},
+]
+keywords = [
+    "mcp", "geogebra", "mechanism", "linkage", "claude",
+    "model-context-protocol", "kinematics", "simulation",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Education",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
 dependencies = [
     "mcp>=1.0.0,<2.0.0",
     "websocket-client>=1.0.0,<2.0.0",
@@ -20,11 +40,19 @@ dev = [
     "pytest-asyncio>=0.21",
 ]
 
+[project.urls]
+Homepage = "https://github.com/123pc/Geogebra_mcp"
+Repository = "https://github.com/123pc/Geogebra_mcp.git"
+Issues = "https://github.com/123pc/Geogebra_mcp/issues"
+
 [project.scripts]
 geogebra-mcp-server = "geogebra_mcp_server:main"
 
 [tool.setuptools]
-include-package-data = true
-
-[tool.setuptools.package-data]
-"" = ["*.js", "package.json", "package-lock.json", "requirements.txt"]
+py-modules = [
+    "geogebra_mcp_server",
+    "auto_launcher",
+    "geogebra_api",
+    "geogebra_bridge",
+    "install_wizard",
+]

@@ -25,6 +25,19 @@ Claude Code ── stdio ── Python MCP Server ── subprocess ── Node.
 
 ## 安装
 
+### pip 安装（PyPI）
+
+```bash
+pip install geogebra-mcp
+```
+
+安装后还需获取 Node.js 守护进程文件：
+```bash
+git clone https://github.com/123pc/Geogebra_mcp.git
+cd Geogebra_mcp && npm install
+# 然后将 geogebra_daemon.js 复制到 pip 安装目录，或直接使用仓库版本
+```
+
 ### 一键安装（推荐）
 
 ```bash

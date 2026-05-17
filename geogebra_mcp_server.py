@@ -686,8 +686,16 @@ async def geogebra_draw_mechanism(name: str, design_json: str, output_dir: str =
 def main():
     """MCP Server 入口 - 按需启动 GeoGebra，不使用时不会自动打开"""
     port = get_cdp_port()
-    sys.stderr.write(f"[geogebra-mcp] CDP port / CDP 端口: {port}\n")
+    sys.stderr.write(f"[geogebra-mcp] v{__version__}  CDP port / CDP 端口: {port}\n")
     sys.stderr.write("[geogebra-mcp] Lazy mode — GeoGebra will start on first tool call / 按需启动模式\n")
+
+    # 检查守护进程文件是否存在
+    if not os.path.exists(DAEMON_JS):
+        sys.stderr.write("[geogebra-mcp] WARNING: geogebra_daemon.js not found / 未找到 daemon.js\n")
+        sys.stderr.write("[geogebra-mcp] If you installed via pip, please also clone the repo for JS files:\n")
+        sys.stderr.write("  git clone https://github.com/123pc/Geogebra_mcp.git\n")
+        sys.stderr.write("  cd Geogebra_mcp && npm install\n")
+        sys.stderr.write("[geogebra-mcp] Or run: python install_wizard.py\n")
 
     # 预启动守护进程（Node.js 子进程），但不等待它连接 GeoGebra
     # 实际连接 + 自动启动在第一次工具调用时触发
