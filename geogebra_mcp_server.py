@@ -25,9 +25,7 @@ __version__ = "0.1.0"
 
 from auto_launcher import (
     ensure_geogebra_running,
-    find_geogebra_installation,
     get_cdp_port,
-    geogebra_status_message,
 )
 
 # ── 守护进程管理器 ──
@@ -54,7 +52,7 @@ class GeoGebraDaemonClient:
         self._shutdown = False
         self._stderr_lines = []
 
-    def start(self):
+    def start(self, wait_for_ready: bool = False):
         env = os.environ.copy()
         env["GEOGEBRA_CDP_PORT"] = str(self.cdp_port)
         self.proc = subprocess.Popen(
@@ -68,14 +66,14 @@ class GeoGebraDaemonClient:
         )
         self._reader_thread = threading.Thread(target=self._read_responses, daemon=True)
         self._reader_thread.start()
-        # stderr 也单独读取，避免阻塞
         self._stderr_thread = threading.Thread(target=self._read_stderr, daemon=True)
         self._stderr_thread.start()
 
-        if not self._ready.wait(15):
-            self.proc.kill()
-            stderr_output = '\n'.join(self._stderr_lines[-10:])
-            raise DaemonError(f"Daemon startup timeout / 守护进程启动超时\nstderr: {stderr_output}")
+        if wait_for_ready:
+            if not self._ready.wait(15):
+                self.proc.kill()
+                stderr_output = '\n'.join(self._stderr_lines[-10:])
+                raise DaemonError(f"Daemon startup timeout / 守护进程启动超时\nstderr: {stderr_output}")
 
     def _read_stderr(self):
         """后台线程: 读取守护进程 stderr"""
@@ -177,7 +175,18 @@ class GeoGebraDaemonClient:
                 if retried:
                     raise
                 retried = True
-                sys.stderr.write(f"[geogebra-mcp] Daemon disconnected ({e}), restarting... / 守护进程断开，正在重启...\n")
+
+                # 如果守护进程还没连接上 GeoGebra，尝试自动启动
+                if not self._ready.is_set():
+                    sys.stderr.write(
+                        "[geogebra-mcp] GeoGebra not connected, attempting auto-launch... / 未连接，尝试自动启动...\n"
+                    )
+                    if ensure_geogebra_running(port=self.cdp_port):
+                        sys.stderr.write("[geogebra-mcp] GeoGebra launched, restarting daemon... / 已启动，重启守护进程...\n")
+                    else:
+                        sys.stderr.write("[geogebra-mcp] Auto-launch failed / 自动启动失败\n")
+
+                sys.stderr.write(f"[geogebra-mcp] Daemon error ({e}), restarting... / 守护进程错误，正在重启...\n")
                 try:
                     self._restart()
                 except DaemonError as restart_err:
@@ -675,43 +684,21 @@ async def geogebra_draw_mechanism(name: str, design_json: str, output_dir: str =
 # ── 主入口 ──
 
 def main():
-    """MCP Server 入口 - 通过 stdio 与 Claude Code 通信，支持自动查找和启动 GeoGebra"""
+    """MCP Server 入口 - 按需启动 GeoGebra，不使用时不会自动打开"""
     port = get_cdp_port()
     sys.stderr.write(f"[geogebra-mcp] CDP port / CDP 端口: {port}\n")
+    sys.stderr.write("[geogebra-mcp] Lazy mode — GeoGebra will start on first tool call / 按需启动模式\n")
 
-    # 尝试连接（假设 GeoGebra 已在运行）
-    sys.stderr.write("[geogebra-mcp] Attempting CDP connection... / 尝试连接 GeoGebra...\n")
+    # 预启动守护进程（Node.js 子进程），但不等待它连接 GeoGebra
+    # 实际连接 + 自动启动在第一次工具调用时触发
     try:
         get_daemon(cdp_port=port)
-        sys.stderr.write("[geogebra-mcp] Daemon connected / 守护进程已连接\n")
-    except DaemonError as e:
-        sys.stderr.write(f"[geogebra-mcp] CDP not reachable / 无法连接: {e}\n")
-
-        # 自动查找并启动 GeoGebra
-        sys.stderr.write("[geogebra-mcp] Auto-launching GeoGebra... / 自动启动 GeoGebra...\n")
-        sys.stderr.write("[geogebra-mcp]   1. Finding installation... / 查找安装...\n")
-        gg_path = find_geogebra_installation()
-        if gg_path:
-            sys.stderr.write(f"[geogebra-mcp]      Found / 找到: {gg_path}\n")
+        if _daemon._ready.is_set():
+            sys.stderr.write("[geogebra-mcp] Daemon connected to existing GeoGebra / 守护进程已连接\n")
         else:
-            sys.stderr.write("[geogebra-mcp]      Not found / 未找到\n")
-
-        sys.stderr.write("[geogebra-mcp]   2. Killing old instances... / 终止旧进程...\n")
-        sys.stderr.write("[geogebra-mcp]   3. Launching with CDP... / 启动调试模式...\n")
-
-        if ensure_geogebra_running(port=port):
-            sys.stderr.write("[geogebra-mcp]   4. CDP ready, retrying daemon... / 重试连接...\n")
-            global _daemon
-            _daemon = None
-            try:
-                get_daemon(cdp_port=port)
-                sys.stderr.write("[geogebra-mcp]   5. Daemon connected / 连接成功\n")
-            except DaemonError as e2:
-                sys.stderr.write(f"[geogebra-mcp]   5. Still failed / 仍然失败: {e2}\n")
-                sys.stderr.write(geogebra_status_message(port=port) + "\n")
-        else:
-            sys.stderr.write("[geogebra-mcp]   4. Launch failed or timeout / 启动失败或超时\n")
-            sys.stderr.write(geogebra_status_message(port=port) + "\n")
+            sys.stderr.write("[geogebra-mcp] Daemon started (waiting for GeoGebra on first use) / 守护进程已启动，等待首次使用\n")
+    except Exception:
+        sys.stderr.write("[geogebra-mcp] Daemon process failed to start, will retry on first use / 守护进程启动失败，首次使用时重试\n")
 
     asyncio.run(mcp.run_stdio_async())
 
