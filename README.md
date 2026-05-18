@@ -1,102 +1,104 @@
 # GeoGebra MCP Server
 
-GeoGebra MCP Server 让 Claude Code、Codex 和其他支持 MCP 的 AI 工具直接控制 GeoGebra Classic 6：绘制函数图像、几何构造、3D 图形、动态机构、保存 `.ggb` 文件，并导出 PNG 截图。
+让 Claude Code、Codex 和其他 MCP 客户端直接操控 GeoGebra Classic 6——绘制几何构造、函数图像、3D 图形、动态机构，保存 `.ggb`，导出 `.png`。
 
-本项目的目标不是替代 GeoGebra，而是把 GeoGebra 变成 AI 可以可靠调用的绘图和数学构造后端。
+> 本项目不是要替代 GeoGebra，而是把 GeoGebra 变成 AI 可以可靠调用的数学可视化后端。
+
+<p align="center">
+  <a href="#快速开始">快速开始</a> ·
+  <a href="#配置-ai-客户端">配置客户端</a> ·
+  <a href="#mcp-工具">MCP 工具</a> ·
+  <a href="#常见问题">常见问题</a> ·
+  <a href="#贡献">贡献</a>
+</p>
+
+---
 
 ## 能做什么
 
-- 让 AI 在 GeoGebra 中执行命令，例如创建点、线、圆、函数、交点、滑块和动画。
-- 绘制曲柄摇杆、曲柄滑块、四连杆等机构简图。
-- 构造平面几何、函数图像、3D 对象、数据图表和概率演示。
-- 通过 Chrome DevTools Protocol 连接到 GeoGebra Classic 6 桌面窗口。
-- 保存当前构造为 `.ggb`，导出当前视图为 `.png`。
-- 通过 skills 指导 Claude Code/Codex 更稳定地使用本 MCP。
+| 场景 | 示例 |
+|------|------|
+| 函数图像 | `f(x)=sin(x)`, `g(x)=cos(x)`, 交点, 切线 |
+| 平面几何 | 三角形, 外接圆, 角平分线, 轨迹, 位似变换 |
+| 3D 图形 | 空间曲线, 平面, 球面, 多面体 |
+| 机构简图 | 曲柄摇杆, 曲柄滑块, 四连杆, 缩放机构 |
+| 数据图表 | 条形图, 直方图, 回归曲线 |
+| 动态动画 | 滑块驱动旋转, 轨迹追踪, 自动播放 |
 
-GeoGebra 使用范式参考了官方 Tutorials 页面中的分类：Getting Started、Graphing、Geometry、3D Graphics、CAS、Spreadsheet、Probability 和 Advanced Tutorials。
+---
 
 ## 架构
 
 ```text
-Claude Code / Codex
-        |
-        | MCP stdio
-        v
-Python MCP Server
-        |
-        | subprocess + JSON lines
-        v
-Node.js daemon
-        |
-        | CDP / WebSocket
-        v
-GeoGebra Classic 6 desktop app
+Claude Code / Codex / DeepSeek TUI / ...
+    │
+    │  MCP stdio
+    ▼
+Python MCP Server  (geogebra_mcp/server.py)
+    │
+    │  subprocess + JSON lines
+    ▼
+Node.js daemon  (geogebra_mcp/geogebra_daemon.js)
+    │
+    │  Chrome DevTools Protocol
+    ▼
+GeoGebra Classic 6  桌面版
 ```
 
-核心组件：
-
-| 文件/模块 | 作用 |
-| --- | --- |
-| `geogebra_mcp/server.py` | MCP Server 主入口，注册 GeoGebra 工具 |
-| `geogebra_mcp/geogebra_daemon.js` | Node.js 守护进程，通过 CDP 调用 `ggbApplet` |
-| `geogebra_mcp/auto_launcher.py` | 跨平台查找并自动启动 GeoGebra Classic 6 |
-| `geogebra_mcp/doctor.py` | 环境诊断命令 |
-| `geogebra_mcp_server.py` | 源码运行兼容入口 |
-| `install_wizard.py` | 交互式安装/配置向导 |
-| `skills/use-geogebra-mcp` | 面向部署和基本使用流程的 skill |
-| `skills/geogebra-master` | 面向 GeoGebra 专家作图策略的 skill |
+---
 
 ## 环境要求
 
-- Python 3.10 或更高版本
-- Node.js 和 npm
-- GeoGebra Classic 6 桌面版
-- Claude Code、Codex 或其他支持 MCP stdio 的客户端
+- **Python 3.10+**
+- **Node.js v16+** 和 npm
+- **GeoGebra Classic 6** 桌面版（[下载](https://www.geogebra.org/download)）
+- 支持 MCP stdio 的 AI 客户端（Claude Code / Codex / …）
 
-Windows、macOS、Linux 都可以使用，但自动查找 GeoGebra 的路径依赖本机安装方式。如果诊断失败，请先确认 GeoGebra Classic 6 已安装。
+Windows、macOS、Linux 均可使用。
 
-## 从源码安装
+---
+
+## 快速开始
+
+### 1. 克隆并安装
 
 ```bash
 git clone https://github.com/123pc/Geogebra_mcp.git
 cd Geogebra_mcp
-npm install
-python -m pip install -e .
+npm install                  # Node 依赖（puppeteer-core）
+python -m pip install -e .   # Python 依赖 + 暴露 CLI 命令
 ```
 
-说明：
+> `npm install` 不可省略——Node 守护进程依赖 `puppeteer-core`。  
+> 也可运行 `python install_wizard.py` 进行交互式安装向导。
 
-- `npm install` 是必须的，因为 Node 守护进程依赖 `puppeteer-core`。
-- `python -m pip install -e .` 会安装 Python MCP server，并暴露命令 `geogebra-mcp-server` 和 `geogebra-mcp-doctor`。
-- 如果你只想快速试用，也可以运行 `python install_wizard.py`，按提示完成环境检查和配置。
-
-## 环境诊断
-
-安装后运行诊断：
+### 2. 环境诊断
 
 ```bash
-# 如果 pip 安装了 Scripts 目录在 PATH 中
 geogebra-mcp-doctor
-
-# 或者用 Python 模块方式运行（始终可用）
+# 如果命令不在 PATH 中，改用：
 python -m geogebra_mcp.doctor
 ```
 
-你会看到类似检查项：
+预期输出：
 
 ```text
-[OK] python
-[OK] node
+[OK] python: 3.13.5
+[OK] node: v22.17.1
 [OK] npm
-[OK] daemon_js
-[OK] package_json
-[OK] geogebra_install
+[OK] daemon_js: .../geogebra_mcp/geogebra_daemon.js
+[OK] package_json: .../geogebra_mcp/package.json
+[OK] geogebra_install: .../GeoGebra.exe
 [FAIL] cdp_port: localhost:9222
 ```
 
-`cdp_port` 失败表示 GeoGebra 当前没有以调试模式运行。启动方式：
+`cdp_port` 失败是正常的——下面启动 GeoGebra 即可解决。
 
-**Windows：** 双击项目目录下的 `start_geogebra.bat`，或执行：
+### 3. 启动 GeoGebra（调试模式）
+
+每次使用前需要以调试模式启动 GeoGebra：
+
+**Windows：** 双击 `start_geogebra.bat`，或一行命令：
 ```cmd
 for /d %v in ("%LOCALAPPDATA%\GeoGebra_6\app-*") do start "" "%~fv\GeoGebra.exe" --remote-debugging-port=9222
 ```
@@ -111,11 +113,9 @@ open -a "GeoGebra Classic 6" --args --remote-debugging-port=9222
 geogebra-classic --remote-debugging-port=9222
 ```
 
-如果 `node`、`npm`、`daemon_js`、`package_json` 或 `geogebra_install` 失败，需要先修复对应环境问题。
+### 4. 配置 AI 客户端
 
-## 配置 Claude Code / Codex
-
-推荐使用安装后的命令形式：
+在你的 MCP 配置文件中加入：
 
 ```json
 {
@@ -128,260 +128,197 @@ geogebra-classic --remote-debugging-port=9222
 }
 ```
 
-如果你在源码目录中直接运行，也可以使用兼容入口：
+> 如果 `geogebra-mcp-server` 不在 PATH 中，也可以用源码入口：
+> ```json
+> { "command": "python", "args": ["<仓库路径>/geogebra_mcp_server.py"] }
+> ```
+
+Claude Code 用户还需在 `settings.json` 中添加：
 
 ```json
-{
-  "mcpServers": {
-    "geogebra": {
-      "command": "python",
-      "args": ["D:/project/Geogebra_mcp/geogebra_mcp_server.py"]
-    }
-  }
-}
+{ "enabledMcpjsonServers": ["geogebra"] }
 ```
 
-Claude Code 如果启用了 MCP allowlist，还需要在设置中允许该 server：
+重启客户端后生效。
 
-```json
-{
-  "enabledMcpjsonServers": ["geogebra"]
-}
-```
-
-不同客户端的配置文件位置可能不同。重点是三件事：
-
-1. server 名称建议固定为 `geogebra`。
-2. command 指向 `geogebra-mcp-server` 或源码入口。
-3. 客户端需要允许这个 MCP server 被调用。
-
-## 启动 GeoGebra（必须手动）
-
-**当前版本需要用户手动启动 GeoGebra Classic 6 并开启远程调试端口。** 自动启动功能在代码中已实现，但在部分 Windows 环境下还不够稳定。
-
-### 每次使用前
-
-以调试模式启动 GeoGebra Classic 6：
-
-**Windows：** 双击项目目录下的 `start_geogebra.bat`，或执行：
-```cmd
-"%LOCALAPPDATA%\GeoGebra_6\app-<版本号>\GeoGebra.exe" --remote-debugging-port=9222
-```
-
-**macOS：**
-```bash
-open -a "GeoGebra Classic 6" --args --remote-debugging-port=9222
-```
-
-**Linux：**
-```bash
-geogebra-classic --remote-debugging-port=9222
-```
-
-GeoGebra 窗口出现后，MCP Server 会自动连接。可以在 Claude Code 中直接开始使用。
-
-> 运行 `python install_wizard.py` 可自动生成平台对应的一键启动脚本。
-
-### 环境变量
-
-| 变量 | 作用 |
-| --- | --- |
-| `GEOGEBRA_CDP_PORT=9222` | 修改 CDP 调试端口 |
+---
 
 ## MCP 工具
 
-| 工具 | 用途 |
-| --- | --- |
-| `geogebra_status` | 检查连接状态 |
-| `geogebra_help` | 查看命令、机构、动画帮助 |
-| `geogebra_version` | 查看 server 版本 |
+### 连接与状态
+
+| 工具 | 说明 |
+|------|------|
+| `geogebra_status` | 检查 GeoGebra 连接状态 |
+| `geogebra_version` | 查看 MCP Server 版本 |
+| `geogebra_help` | 获取命令/机构/动画参考（`topic="commands"\|"mechanisms"\|"animation"`） |
+
+### 命令执行
+
+| 工具 | 推荐度 | 说明 |
+|------|--------|------|
+| `geogebra_run_commands` | 推荐 | 结构化数组执行，适合 AI 客户端 |
+| `geogebra_create_construction` | 推荐 | 结构化对象执行，带样式和动画 |
+| `geogebra_exec` | 备选 | 单条命令执行 |
+| `geogebra_batch` | 兼容 | JSON 字符串批量执行，兼容旧客户端 |
+| `geogebra_draw_mechanism` | 兼容 | JSON 字符串机构绘制，兼容旧客户端 |
+
+### 视图与外观
+
+| 工具 | 说明 |
+|------|------|
 | `geogebra_new_construction` | 清空当前构造 |
-| `geogebra_exec` | 执行单条 GeoGebra 命令 |
-| `geogebra_batch` | 用 JSON 字符串批量执行命令，兼容旧客户端 |
-| `geogebra_run_commands` | 用结构化数组批量执行命令，推荐 AI 客户端使用 |
-| `geogebra_create_construction` | 用结构化 design 对象创建完整构造，推荐用于复杂作图 |
-| `geogebra_draw_mechanism` | 用 JSON 字符串创建机构图，兼容旧客户端 |
-| `geogebra_set_view` | 设置视图，例如 `G`、`AG`、`3D`、`T` |
-| `geogebra_set_appearance` | 设置颜色、线宽、点大小、标签可见性 |
-| `geogebra_animate` | 启动或停止滑块动画 |
-| `geogebra_get_objects` | 获取当前构造对象列表 |
-| `geogebra_save` | 保存 `.ggb` 文件 |
-| `geogebra_export_png` | 导出 PNG 截图 |
+| `geogebra_set_view` | 设置视图：`G`（几何）、`AG`（代数+几何）、`3D`、`T`（表格） |
+| `geogebra_set_appearance` | 颜色、线宽、点大小、标签可见性 |
+| `geogebra_animate` | 启动/停止滑块动画，设置速度 |
+| `geogebra_get_objects` | 获取当前构造对象列表（用于自验收） |
 
-## 推荐给 AI 的调用流程
+### 输出
 
-AI 不应该上来就画图。推荐流程是：
+| 工具 | 说明 |
+|------|------|
+| `geogebra_save` | 保存为 `.ggb` 文件 |
+| `geogebra_export_png` | 导出当前视图为 `.png` |
 
-1. 如果用户没有指定输出路径，先问用户「文件保存在哪里」。
-2. 调用 `geogebra_status` 检查连接。
-3. 如果未连接，提示用户用 `start_geogebra.bat` 或命令行启动 GeoGebra。
-4. 根据任务类型选择视图：函数和几何用 `G` 或 `AG`，3D 用 `3D`，表格数据用 `T`。
-5. 如果是新图，调用 `geogebra_new_construction`。
-6. 用 `geogebra_run_commands` 或 `geogebra_create_construction` 创建对象。
-7. 用 `geogebra_get_objects` 验证对象是否创建成功。
-8. 如有需要，调用 `geogebra_animate`、`geogebra_save`、`geogebra_export_png`。
+---
 
-## 直接使用示例
+## 给 AI 的调用流程
 
-### 画函数图像
+AI 在处理绘图请求时应遵循以下步骤：
 
-用户可以对 Claude Code/Codex 说：
+1. **确认输出路径** — 如果用户没指定保存位置，先问「文件保存在哪里？」
+2. **检查连接** — `geogebra_status`
+3. **未连接时提示** — 告知用户双击 `start_geogebra.bat` 启动 GeoGebra
+4. **设置视图** — `geogebra_set_view`
+5. **清空画布**（如需） — `geogebra_new_construction`
+6. **发送命令** — 用 `geogebra_run_commands` 或 `geogebra_create_construction`
+7. **自验收** — `geogebra_get_objects`，确认对象数 >= 3
+8. **动画**（如需） — `geogebra_set_appearance` 使滑块可见 + `geogebra_animate` 自动播放
+9. **保存** — `geogebra_save`
 
-```text
-用 GeoGebra 画 y=sin(x) 和 y=cos(x)，标出它们的一个交点，并导出 PNG。
-```
+---
 
-AI 应该调用类似命令：
+## 示例
 
-```json
-{
-  "commands": [
-    "f(x)=sin(x)",
-    "g(x)=cos(x)",
-    "A=Intersect(f,g,1)",
-    "t=Tangent(A,f)"
-  ]
-}
-```
+### 用自然语言
 
-### 构造三角形外接圆
+> "画 y=sin(x) 和 y=cos(x)，标出交点，导出到 D:/output/sin_cos.png"
 
-```json
-{
-  "commands": [
-    "A=(0,0)",
-    "B=(5,0)",
-    "C=(1.5,3)",
-    "tri=Polygon(A,B,C)",
-    "cc=Circle(A,B,C)"
-  ]
-}
-```
-
-### 创建曲柄摇杆机构
-
-建议使用 ASCII 标签，避免不同客户端对希腊字母编码不一致：
+### 曲柄摇杆机构
 
 ```json
 {
   "name": "crank_rocker",
   "design": {
     "perspective": "G",
-    "animate": "alpha",
-    "speed": 0.5,
     "commands": [
-      "O1=(0,0)",
-      "O2=(6,0)",
-      "alpha=45 deg",
+      "O1=(0,0)", "O2=(6,0)", "alpha=30 deg",
       "A=O1+(2*cos(alpha),2*sin(alpha))",
-      "c1=Circle(A,5)",
-      "c2=Circle(O2,4)",
+      "c1=Circle(A,5)", "c2=Circle(O2,4)",
       "B=Intersect(c1,c2,1)",
-      "ground=Segment(O1,O2)",
-      "crank=Segment(O1,A)",
-      "coupler=Segment(A,B)",
-      "rocker=Segment(B,O2)"
+      "crank=Segment(O1,A)", "coupler=Segment(A,B)",
+      "rocker=Segment(B,O2)", "ground=Segment(O1,O2)"
     ],
     "styles": [
-      {"label": "ground", "color": [0, 0, 0], "thickness": 5},
-      {"label": "crank", "color": [1, 0, 0], "thickness": 6},
-      {"label": "coupler", "color": [0, 0.2, 1], "thickness": 6},
-      {"label": "rocker", "color": [0, 0.7, 0.2], "thickness": 6},
-      {"label": "A", "point_size": 5},
-      {"label": "B", "point_size": 5}
-    ]
+      {"label":"crank","color":[1,0,0],"thickness":6},
+      {"label":"coupler","color":[0,0.2,1],"thickness":6},
+      {"label":"rocker","color":[0,0.7,0.2],"thickness":6},
+      {"label":"ground","color":[0,0,0],"thickness":5}
+    ],
+    "animate": "alpha",
+    "speed": 0.5
   },
-  "output_dir": "D:/project/Geogebra_mcp/output"
+  "output_dir": "D:/output"
 }
 ```
 
+> 推荐使用 ASCII 标签（`alpha` 而非 `α`），避免不同客户端间的编码问题。
+
+---
+
 ## Skills
 
-仓库内提供两套 skill：
+仓库附带两套 skill，可教 AI 更稳定地使用本 MCP：
 
-| Skill | 适用场景 |
-| --- | --- |
-| `skills/use-geogebra-mcp` | 教 AI 如何部署、配置、诊断和调用本 MCP |
-| `skills/geogebra-master` | 教 AI 像 GeoGebra 熟练用户一样规划作图、选择命令、构造动画并验证结果 |
+| Skill | 用途 |
+|-------|------|
+| `skills/geogebra-master` | 教 AI 像 GeoGebra 专家一样作图——强制滑块可见、自动播放动画、自验收 |
+| `skills/use-geogebra-mcp` | 教 AI 部署、配置和诊断本 MCP |
 
-推荐给 Claude Code/Codex 的用户提示：
+---
 
-```text
-使用 use-geogebra-mcp 配置并检查 GeoGebra MCP，然后使用 geogebra-master 在 GeoGebra 中绘制一个曲柄摇杆机构。
-```
+## 环境变量
 
-如果你的客户端支持本地 skills，将这两个目录放到客户端可发现的 skills 目录中；如果客户端只能读取项目内 skill，则让 AI 显式读取本仓库 `skills/` 下的对应目录。
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `GEOGEBRA_CDP_PORT` | `9222` | GeoGebra 远程调试端口 |
+
+---
 
 ## 常见问题
 
-### Claude Code 显示 `connected: false`
+### `connected: false`
 
-GeoGebra 没有以调试模式运行。请手动启动：
+GeoGebra 未以调试模式运行。确保已用 `--remote-debugging-port=9222` 启动（见[快速开始](#快速开始)第 3 步）。
 
-**Windows：** 双击 `start_geogebra.bat`，或执行：
-```cmd
-"%LOCALAPPDATA%\GeoGebra_6\app-<版本号>\GeoGebra.exe" --remote-debugging-port=9222
-```
-
-如果仍然失败，运行诊断：
-
-```bash
-geogebra-mcp-doctor
-```
-
-常见原因：
-- GeoGebra Classic 6 没有安装。
-- `--remote-debugging-port=9222` 参数没加上（直接双击桌面图标打开的 GeoGebra 不带调试端口）。
-- 端口 `9222` 被占用。
-- Node.js/npm 没安装，或没有运行 `npm install`。
-
-### 已经打开的 GeoGebra 能直接接管吗？
-
-不能。必须关闭后用 `--remote-debugging-port=9222` 重新启动。
-
-### 安装 wheel 后 Node 依赖还需要吗？
-
-需要。wheel 会包含 daemon 的 JavaScript 文件和 `package.json`，但不会把 `node_modules` 打进 Python 包。请在项目目录或部署目录执行 `npm install`。
-
-### 为什么建议用 `alpha` 而不是 `α`？
-
-GeoGebra 支持希腊字母，但不同 AI 客户端、终端、JSON 和日志链路可能出现编码问题。为了让构造更普适，推荐默认使用 ASCII 名称，例如 `alpha`、`beta`、`theta`。
-
-### 动画不动怎么办？
+### 动画不动
 
 检查三点：
+1. 是否创建了角度滑块（`alpha=30 deg`）
+2. 运动点是否依赖滑块（`A=O+(2*cos(alpha),2*sin(alpha))`）
+3. 是否调用了 `geogebra_set_appearance` 使滑块**可见** + `geogebra_animate(label="alpha", animate=true)`
 
-1. 是否创建了真正的滑块，例如 `alpha=45 deg`。
-2. 运动点是否依赖滑块，例如 `A=O+(2*cos(alpha),2*sin(alpha))`。
-3. 是否调用了 `geogebra_animate(label="alpha", animate=true, speed=0.5)`。
+### AI 画的图和实际不符 / 空白
 
-## 开发与验证
+让 AI 调用 `geogebra_get_objects` 自验收。如果对象数为 0，AI 应重试而非声称"完成"。
 
-运行 Python 测试：
+### 已经打开的 GeoGebra 能接管吗？
+
+不能。必须关闭后以 `--remote-debugging-port=9222` 重新启动。
+
+### 能在 macOS / Linux 上用吗？
+
+可以。三平台均已适配。
+
+### 为什么要用 `alpha` 而非 `α`？
+
+希腊字母在部分客户端、终端或 JSON 日志中可能出现编码异常。推荐默认使用 ASCII 名称以提高普适性。
+
+---
+
+## 开发
 
 ```bash
-python -m pytest -q
-```
+# 运行测试
+python -m pytest -q                     # Python (47 tests)
+node tests/test_daemon_protocol.js      # Node (12 tests)
 
-运行 Node 协议测试：
-
-```bash
-node tests/test_daemon_protocol.js
-```
-
-构建 wheel：
-
-```bash
+# 构建 wheel
 python -m build --wheel
 ```
 
-验证 skills：
+---
 
-```bash
-python C:/Users/35148/.codex/skills/.system/skill-creator/scripts/quick_validate.py skills/use-geogebra-mcp
-python C:/Users/35148/.codex/skills/.system/skill-creator/scripts/quick_validate.py skills/geogebra-master
-```
+## 贡献
+
+欢迎所有形式的贡献！
+
+- 在 [Issues](https://github.com/123pc/Geogebra_mcp/issues) 中报告 bug 或提出功能建议
+- 提交 Pull Request 改进代码、文档或 skill
+- 测试并适配更多 AI 客户端（Codex、DeepSeek TUI 等）
+- 分享你用它绘制的有趣构造
+
+### 当前适配状态
+
+| 客户端 | 状态 |
+|--------|------|
+| Claude Code | 已测试 |
+| Codex | 适配中 |
+| DeepSeek TUI | 计划中 |
+| 其他 MCP 客户端 | 欢迎测试反馈 |
+
+---
 
 ## 许可证
 
-MIT
+MIT © 2026 [GeoGebra MCP contributors](https://github.com/123pc/Geogebra_mcp/graphs/contributors)
