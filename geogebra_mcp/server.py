@@ -201,8 +201,23 @@ class GeoGebraDaemonClient:
                 if method == "status" and isinstance(result, dict):
                     self._connected = bool(result.get("connected"))
                     self._last_status = result
-                else:
-                    self._connected = True
+                    # Task 2A: auto-launch when status reports disconnected on first attempt
+                    if not self._connected and not retried:
+                        sys.stderr.write(
+                            "[geogebra-mcp] Status reports disconnected, attempting auto-launch... / 状态报告未连接，尝试自动启动...\n"
+                        )
+                        launched = ensure_geogebra_running(port=self.cdp_port)
+                        if launched:
+                            self._restart()
+                            retried = True
+                            continue
+                        return {
+                            **result,
+                            "auto_launch_attempted": True,
+                            "auto_launch_succeeded": False,
+                        }
+                    return result
+                self._connected = True
                 return result
             except DaemonError as e:
                 if retried:
@@ -779,8 +794,10 @@ def main():
     # 实际连接 + 自动启动在第一次工具调用时触发
     try:
         get_daemon(cdp_port=port)
-        if _daemon._ready.is_set():
+        if _daemon._ready.is_set() and _daemon._connected:
             sys.stderr.write("[geogebra-mcp] Daemon connected to existing GeoGebra / 守护进程已连接\n")
+        elif _daemon._ready.is_set():
+            sys.stderr.write("[geogebra-mcp] Daemon started but GeoGebra is not connected yet / 守护进程已启动，但 GeoGebra 尚未连接\n")
         else:
             sys.stderr.write("[geogebra-mcp] Daemon started (waiting for GeoGebra on first use) / 守护进程已启动，等待首次使用\n")
     except Exception:

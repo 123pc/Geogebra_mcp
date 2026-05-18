@@ -46,6 +46,43 @@ class TestAutoLaunchWhenReadyButDisconnected:
         assert calls["ensure"] == 1, f"Expected ensure_geogebra_running to be called once, got {calls['ensure']}"
         assert calls["restart"] == 1, f"Expected restart to be called once, got {calls['restart']}"
 
+    def test_status_auto_launches_when_daemon_ready_but_status_disconnected(self):
+        """Task 2A: _call('status') must trigger auto-launch when connected:false."""
+        from geogebra_mcp.server import GeoGebraDaemonClient
+
+        client = GeoGebraDaemonClient(cdp_port=9222)
+        client._ready.set()
+        client._connected = False
+
+        calls = {"ensure": 0, "restart": 0, "attempt": 0}
+
+        def fake_ensure(port):
+            calls["ensure"] += 1
+            assert port == 9222
+            return True
+
+        def fake_restart():
+            calls["restart"] += 1
+            client._connected = True
+
+        def fake_write(method, params=None, timeout=30):
+            calls["attempt"] += 1
+            assert method == "status"
+            if calls["attempt"] == 1:
+                return {"connected": False, "error": "GeoGebra 未运行或 CDP 端口不可用"}
+            return {"connected": True, "title": "GeoGebra Classic 6", "objectCount": 0}
+
+        client._write_request_once = fake_write
+        client._restart = fake_restart
+
+        with patch("geogebra_mcp.server.ensure_geogebra_running", fake_ensure):
+            result = client._call("status")
+
+        assert result["connected"] is True
+        assert calls["ensure"] == 1
+        assert calls["restart"] == 1
+        assert calls["attempt"] == 2
+
 # Must mock the daemon BEFORE importing the MCP server module, because the
 # module-level singletons (NODE, DAEMON_JS) and class definitions run at import.
 # We replace the entire GeoGebraDaemonClient with a mock.
