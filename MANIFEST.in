@@ -1,7 +1,8 @@
-include geogebra_daemon.js
-include geogebra_bridge.js
-include package.json
-include package-lock.json
-include requirements.txt
 include LICENSE
 include README.md
+include requirements.txt
+include geogebra_mcp/geogebra_daemon.js
+include geogebra_mcp/geogebra_bridge.js
+include geogebra_mcp/package.json
+include geogebra_mcp/package-lock.json
+recursive-include tests *.py *.js

@@ -10,7 +10,7 @@ import pytest
 
 # ── Fake daemon client for testing connection-state logic ──
 
-from geogebra_mcp_server import GeoGebraDaemonClient, DaemonError
+from geogebra_mcp.server import GeoGebraDaemonClient, DaemonError
 
 
 class TestAutoLaunchWhenReadyButDisconnected:
@@ -39,7 +39,7 @@ class TestAutoLaunchWhenReadyButDisconnected:
         client._write_request_once = fake_write_then_fail
         client._restart = fake_restart
 
-        with patch("geogebra_mcp_server.ensure_geogebra_running", fake_ensure):
+        with patch("geogebra_mcp.server.ensure_geogebra_running", fake_ensure):
             with pytest.raises(DaemonError):
                 client._call("status")
 

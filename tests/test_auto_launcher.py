@@ -7,7 +7,7 @@ from unittest.mock import patch, MagicMock, mock_open
 
 import pytest
 
-from auto_launcher import (
+from geogebra_mcp.auto_launcher import (
     get_cdp_port,
     get_search_paths,
     find_geogebra_installation,
@@ -165,15 +165,15 @@ class TestGeogebraStatusMessage:
 
 
 class TestEnsureGeogebraRunning:
-    @patch("auto_launcher.is_cdp_ready")
+    @patch("geogebra_mcp.auto_launcher.is_cdp_ready")
     def test_already_running(self, mock_ready, clean_env):
         mock_ready.return_value = True
         assert ensure_geogebra_running(port=9222) is True
 
-    @patch("auto_launcher.should_restart_existing_geogebra")
-    @patch("auto_launcher._kill_existing_geogebra")
-    @patch("auto_launcher.find_geogebra_installation")
-    @patch("auto_launcher.is_cdp_ready")
+    @patch("geogebra_mcp.auto_launcher.should_restart_existing_geogebra")
+    @patch("geogebra_mcp.auto_launcher._kill_existing_geogebra")
+    @patch("geogebra_mcp.auto_launcher.find_geogebra_installation")
+    @patch("geogebra_mcp.auto_launcher.is_cdp_ready")
     def test_not_found(self, mock_ready, mock_find, mock_kill, mock_restart_policy, clean_env):
         mock_ready.return_value = False
         mock_find.return_value = None
@@ -181,11 +181,11 @@ class TestEnsureGeogebraRunning:
         assert ensure_geogebra_running(port=9222) is False
         mock_kill.assert_not_called()
 
-    @patch("auto_launcher.should_restart_existing_geogebra")
-    @patch("auto_launcher._kill_existing_geogebra")
-    @patch("auto_launcher.launch_geogebra")
-    @patch("auto_launcher.find_geogebra_installation")
-    @patch("auto_launcher.is_cdp_ready")
+    @patch("geogebra_mcp.auto_launcher.should_restart_existing_geogebra")
+    @patch("geogebra_mcp.auto_launcher._kill_existing_geogebra")
+    @patch("geogebra_mcp.auto_launcher.launch_geogebra")
+    @patch("geogebra_mcp.auto_launcher.find_geogebra_installation")
+    @patch("geogebra_mcp.auto_launcher.is_cdp_ready")
     def test_launches_when_found(self, mock_ready, mock_find, mock_launch, mock_kill, mock_restart_policy, clean_env):
         mock_ready.return_value = False
         mock_find.return_value = "/fake/GeoGebra.exe"
@@ -199,11 +199,11 @@ class TestEnsureGeogebraRunning:
         mock_launch.assert_called()
         mock_kill.assert_not_called()  # Default: no kill
 
-    @patch("auto_launcher.should_restart_existing_geogebra")
-    @patch("auto_launcher._kill_existing_geogebra")
-    @patch("auto_launcher.launch_geogebra")
-    @patch("auto_launcher.find_geogebra_installation")
-    @patch("auto_launcher.is_cdp_ready")
+    @patch("geogebra_mcp.auto_launcher.should_restart_existing_geogebra")
+    @patch("geogebra_mcp.auto_launcher._kill_existing_geogebra")
+    @patch("geogebra_mcp.auto_launcher.launch_geogebra")
+    @patch("geogebra_mcp.auto_launcher.find_geogebra_installation")
+    @patch("geogebra_mcp.auto_launcher.is_cdp_ready")
     def test_launch_fails_process_dies(self, mock_ready, mock_find, mock_launch, mock_kill, mock_restart_policy, clean_env):
         mock_ready.return_value = False
         mock_find.return_value = "/fake/GeoGebra.exe"
@@ -212,18 +212,18 @@ class TestEnsureGeogebraRunning:
 
         assert ensure_geogebra_running(port=9222) is False
 
-    @patch("auto_launcher._kill_existing_geogebra")
-    @patch("auto_launcher.find_geogebra_installation")
-    @patch("auto_launcher.is_cdp_ready")
+    @patch("geogebra_mcp.auto_launcher._kill_existing_geogebra")
+    @patch("geogebra_mcp.auto_launcher.find_geogebra_installation")
+    @patch("geogebra_mcp.auto_launcher.is_cdp_ready")
     def test_does_not_kill_existing_geogebra_by_default(self, mock_ready, mock_find, mock_kill, clean_env):
         mock_ready.return_value = False
         mock_find.return_value = None
         assert ensure_geogebra_running(port=9222) is False
         mock_kill.assert_not_called()
 
-    @patch("auto_launcher._kill_existing_geogebra")
-    @patch("auto_launcher.find_geogebra_installation")
-    @patch("auto_launcher.is_cdp_ready")
+    @patch("geogebra_mcp.auto_launcher._kill_existing_geogebra")
+    @patch("geogebra_mcp.auto_launcher.find_geogebra_installation")
+    @patch("geogebra_mcp.auto_launcher.is_cdp_ready")
     def test_kills_existing_geogebra_when_env_enabled(self, mock_ready, mock_find, mock_kill, clean_env):
         os.environ["GEOGEBRA_RESTART_EXISTING"] = "1"
         mock_ready.return_value = False
@@ -237,10 +237,10 @@ class TestEnsureGeogebraRunning:
 
 class TestRestartPolicy:
     def test_restart_disabled_by_default(self, clean_env):
-        from auto_launcher import should_restart_existing_geogebra
+        from geogebra_mcp.auto_launcher import should_restart_existing_geogebra
         assert should_restart_existing_geogebra() is False
 
     def test_restart_enabled_with_env_flag(self, clean_env):
         os.environ["GEOGEBRA_RESTART_EXISTING"] = "1"
-        from auto_launcher import should_restart_existing_geogebra
+        from geogebra_mcp.auto_launcher import should_restart_existing_geogebra
         assert should_restart_existing_geogebra() is True
