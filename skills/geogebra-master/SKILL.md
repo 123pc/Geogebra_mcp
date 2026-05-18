@@ -20,7 +20,8 @@ This skill follows the official GeoGebra tutorial structure: Graphing, Geometry,
    - Use `geogebra_create_construction` for complete named constructions.
    - Use `geogebra_run_commands` for ordered command batches.
    - Use `geogebra_exec` only for one-off commands or quick repair.
-7. Verify with `geogebra_get_objects`, `geogebra_save`, or `geogebra_export_png`.
+7. **After all commands, call `geogebra_get_objects` to verify the construction is not empty.**
+8. If verification passes, save with `geogebra_save` and optionally `geogebra_export_png`.
 
 ## Construction Order
 
@@ -36,6 +37,29 @@ Build in dependency order:
 8. Save `.ggb` and export `.png` when the user asks for deliverables or when a visual check is useful.
 
 Prefer ASCII object names and labels (`alpha`, `beta`, `O1`, `O2`, `crank`) unless the environment is known to preserve Unicode reliably.
+
+## Self-Verification — MANDATORY
+
+After sending all construction commands and before telling the user "done", call `geogebra_get_objects` to verify the construction actually has content.
+
+```text
+Call: geogebra_get_objects()
+Expected response: {"success": true, "objects": [...], "count": N}
+```
+
+**Decision logic based on `count`:**
+
+| count | Action |
+|-------|--------|
+| 0 | **The construction is empty.** Do NOT claim success. Report: "The GeoGebra construction appears empty — commands may have failed silently. Let me retry with simplified commands." Retry from `geogebra_new_construction`. |
+| 1–2 | **Suspiciously low.** The user probably can't see the intended drawing. Report the low count, list the objects found, and retry or ask the user what they expected. |
+| 3+ | **Acceptable.** Proceed to save and export. |
+
+**If verification fails after 2 attempts:** be honest with the user. Report the commands that were sent, the objects that GeoGebra returned, and suggest running `geogebra-mcp-doctor` to check the environment.
+
+**Also verify by inspecting object names:**
+- If the user asked for a mechanism with segments named `crank`, `coupler`, `rocker`, check that those names appear in the objects list.
+- If expected objects are missing, resend only the missing commands.
 
 ## Command Idioms
 
@@ -247,9 +271,9 @@ Before saying the drawing is done:
 - The connection status was checked or the tool call succeeded.
 - A fresh construction was used when appropriate.
 - Commands were issued in dependency order.
+- **`geogebra_get_objects` was called and returned count >= 3.** Do NOT claim success on 0 objects.
+- **Expected named objects (e.g., crank, coupler, rocker) appear in the objects list.**
 - **For mechanisms: the angle slider is created, `geogebra_set_appearance` made it visible, AND `geogebra_animate` was called with `animate=true`.**
 - User can see the slider in the Graphics view and the mechanism is autoplaying.
-- Objects were verified or a saved/exported path was returned.
-- Animation has a real slider driver if motion was requested.
 - The `.ggb` file was saved to the user-confirmed output path.
-- The response tells the user what was created and where files were saved.
+- The response tells the user what was created, the object count, and where files were saved.
