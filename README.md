@@ -220,6 +220,7 @@ AI 在处理绘图请求时应遵循以下步骤：
       "rocker=Segment(B,O2)", "ground=Segment(O1,O2)"
     ],
     "styles": [
+      {"label":"alpha","visible":true,"label_visible":true},
       {"label":"crank","color":[1,0,0],"thickness":6},
       {"label":"coupler","color":[0,0.2,1],"thickness":6},
       {"label":"rocker","color":[0,0.7,0.2],"thickness":6},
