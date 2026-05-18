@@ -72,10 +72,14 @@ python -m pip install -e .
 
 ## 环境诊断
 
-安装后运行：
+安装后运行诊断：
 
 ```bash
+# 如果 pip 安装了 Scripts 目录在 PATH 中
 geogebra-mcp-doctor
+
+# 或者用 Python 模块方式运行（始终可用）
+python -m geogebra_mcp.doctor
 ```
 
 你会看到类似检查项：
