@@ -94,7 +94,22 @@ python -m geogebra_mcp.doctor
 [FAIL] cdp_port: localhost:9222
 ```
 
-`cdp_port` 失败表示 GeoGebra 当前没有以调试模式运行。请双击 `start_geogebra.bat` 或按命令行动手动启动 GeoGebra Classic 6。
+`cdp_port` 失败表示 GeoGebra 当前没有以调试模式运行。启动方式：
+
+**Windows：** 双击项目目录下的 `start_geogebra.bat`，或执行：
+```cmd
+for /d %v in ("%LOCALAPPDATA%\GeoGebra_6\app-*") do start "" "%~fv\GeoGebra.exe" --remote-debugging-port=9222
+```
+
+**macOS：**
+```bash
+open -a "GeoGebra Classic 6" --args --remote-debugging-port=9222
+```
+
+**Linux：**
+```bash
+geogebra-classic --remote-debugging-port=9222
+```
 
 如果 `node`、`npm`、`daemon_js`、`package_json` 或 `geogebra_install` 失败，需要先修复对应环境问题。
 
