@@ -32,7 +32,4 @@ build/
 htmlcov/
 .pytest_cache/
 
-# Launcher scripts (generated)
-start_geogebra.bat
-start_geogebra.command
-start_geogebra.sh
+# Launcher scripts — tracked in repo, do NOT ignore
