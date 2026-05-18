@@ -10,10 +10,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 @pytest.fixture
 def clean_env():
-    """Remove GEOGEBRA_CDP_PORT from environment for predictable defaults."""
-    old = os.environ.pop("GEOGEBRA_CDP_PORT", None)
+    """Remove GEOGEBRA_* env vars for predictable test defaults."""
+    old_cdp = os.environ.pop("GEOGEBRA_CDP_PORT", None)
+    old_restart = os.environ.pop("GEOGEBRA_RESTART_EXISTING", None)
     yield
-    if old is not None:
-        os.environ["GEOGEBRA_CDP_PORT"] = old
+    if old_cdp is not None:
+        os.environ["GEOGEBRA_CDP_PORT"] = old_cdp
     else:
         os.environ.pop("GEOGEBRA_CDP_PORT", None)
+    if old_restart is not None:
+        os.environ["GEOGEBRA_RESTART_EXISTING"] = old_restart
+    else:
+        os.environ.pop("GEOGEBRA_RESTART_EXISTING", None)

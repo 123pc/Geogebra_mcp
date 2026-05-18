@@ -59,7 +59,9 @@ jobs:
           wheel = __import__('glob').glob('dist/*.whl')[0]
           names = zipfile.ZipFile(wheel).namelist()
           print('\n'.join(names))
-          assert any('geogebra_daemon.js' in n for n in names), 'Missing geogebra_daemon.js'
-          assert any('geogebra_mcp_server.py' in n for n in names), 'Missing main server'
+          assert any(n.endswith('geogebra_mcp/geogebra_daemon.js') for n in names), 'Missing geogebra_daemon.js'
+          assert any(n.endswith('geogebra_mcp/geogebra_bridge.js') for n in names), 'Missing geogebra_bridge.js'
+          assert any(n.endswith('geogebra_mcp/package.json') for n in names), 'Missing package.json'
+          assert any(n.endswith('geogebra_mcp/server.py') for n in names), 'Missing server.py'
           print('OK: Wheel contains required files')
           "
