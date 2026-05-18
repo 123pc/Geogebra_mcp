@@ -68,10 +68,11 @@ A=O+(2*cos(alpha),2*sin(alpha))
 trace=Circle(O,2)
 ```
 
-Then call:
+Then make the slider visible and start autoplay:
 
-```json
-{"label":"alpha","animate":true,"speed":0.5}
+```
+geogebra_set_appearance(label="alpha", visible=true, label_visible=true)
+geogebra_animate(label="alpha", animate=true, speed=0.5)
 ```
 
 ## Task Modes
@@ -156,7 +157,10 @@ path=Circle(O,3)
 Segment(O,P)
 ```
 
-Then call `geogebra_animate(label="alpha", animate=true, speed=0.5)`.
+Then make the slider visible and start animation:
+
+1. `geogebra_set_appearance(label="alpha", visible=true, label_visible=true)` — makes the slider visible in the Graphics view.
+2. `geogebra_animate(label="alpha", animate=true, speed=0.5)` — starts autoplay so the user sees motion immediately.
 
 ## Mechanism Patterns
 
@@ -168,8 +172,9 @@ Every mechanism drawing MUST have an animated driver slider. Without this, the u
 
 1. **Always create an angle slider as the FIRST command**: `alpha=30 deg` (or `θ=30 deg`, `φ=45 deg`). This creates a slider that cycles from 0° to 360°.
 2. **Define moving joints using the slider**: `A=O1+(2*cos(alpha),2*sin(alpha))`. Points defined this way MOVE when the slider animates.
-3. **After ALL commands, enable animation**: call `geogebra_animate(label="alpha", animate=true, speed=0.5)`. Without this call, the mechanism stays frozen.
-4. **Verify animation is running**: the slider must be set to `animate=true`, not just created. A slider without `geogebra_animate` is a static number.
+3. **Make the slider visible**: GeoGebra hides sliders by default in the Graphics view. After creating the slider, call `geogebra_set_appearance(label="alpha", visible=true, label_visible=true)` so the user can see and interact with the slider.
+4. **After ALL commands, start the animation playing**: call `geogebra_animate(label="alpha", animate=true, speed=0.5)`. The `animate=true` parameter sets the slider to autoplay — the user sees the mechanism moving immediately without clicking anything. Without this call, the mechanism stays frozen.
+5. **Verify animation is running**: the slider must have `animate=true`, not just exist. A slider without `geogebra_animate` is a static number. The user should see the mechanism moving automatically in GeoGebra.
 
 Crank-rocker:
 
@@ -187,7 +192,9 @@ coupler=Segment(A,B)
 rocker=Segment(B,O2)
 ```
 
-Then call `geogebra_animate(label="alpha", animate=true, speed=0.5)`.
+Then:
+1. `geogebra_set_appearance(label="alpha", visible=true, label_visible=true)`
+2. `geogebra_animate(label="alpha", animate=true, speed=0.5)`
 
 Slider-crank:
 
@@ -202,7 +209,9 @@ crank=Segment(O,A)
 rod=Segment(A,B)
 ```
 
-Then call `geogebra_animate(label="alpha", animate=true, speed=0.5)`.
+Then:
+1. `geogebra_set_appearance(label="alpha", visible=true, label_visible=true)`
+2. `geogebra_animate(label="alpha", animate=true, speed=0.5)`
 
 Before presenting a mechanism as complete:
 
@@ -238,7 +247,8 @@ Before saying the drawing is done:
 - The connection status was checked or the tool call succeeded.
 - A fresh construction was used when appropriate.
 - Commands were issued in dependency order.
-- **For mechanisms: the angle slider is created AND `geogebra_animate` was called with `animate=true`.**
+- **For mechanisms: the angle slider is created, `geogebra_set_appearance` made it visible, AND `geogebra_animate` was called with `animate=true`.**
+- User can see the slider in the Graphics view and the mechanism is autoplaying.
 - Objects were verified or a saved/exported path was returned.
 - Animation has a real slider driver if motion was requested.
 - The `.ggb` file was saved to the user-confirmed output path.
