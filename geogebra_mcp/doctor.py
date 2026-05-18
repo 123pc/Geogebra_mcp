@@ -66,3 +66,7 @@ def main() -> None:
     checks = run_checks()
     print(format_checks(checks))
     raise SystemExit(0 if all(check.ok for check in checks) else 1)
+
+
+if __name__ == "__main__":
+    main()
