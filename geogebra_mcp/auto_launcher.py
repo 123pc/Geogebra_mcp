@@ -143,45 +143,43 @@ def launch_geogebra(
     port = port or get_cdp_port()
     system = sys.platform
 
-    # Windows: use CREATE_NEW_PROCESS_GROUP + DETACHED_PROCESS so it doesn't
-    # inherit our console and truly starts independently.
-    kwargs = {}
     if system == "win32":
-        kwargs["creationflags"] = (
-            subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+        # Use cmd.exe /c start to properly detach the GUI process.
+        # Direct subprocess.Popen doesn't work for some Electron apps.
+        proc = subprocess.Popen(
+            ["cmd", "/c", "start", "", geogebra_path, f"--remote-debugging-port={port}"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
-
-    if system == "darwin" and geogebra_path.endswith(".app"):
+    elif system == "darwin" and geogebra_path.endswith(".app"):
         proc = subprocess.Popen(
             ["open", geogebra_path, "--args", f"--remote-debugging-port={port}"],
-            start_new_session=True, **kwargs,
+            start_new_session=True,
         )
     else:
         proc = subprocess.Popen(
             [geogebra_path, f"--remote-debugging-port={port}"],
-            start_new_session=True, **kwargs,
+            start_new_session=True,
         )
 
     if not wait:
         return proc
 
     # 轮询等待 CDP 就绪
+    # On Windows with cmd /c start, the launcher process exits immediately
+    # so we only use CDP readiness as the signal.
+    is_windows = (system == "win32")
     deadline = time.time() + startup_timeout
     while time.time() < deadline:
-        if proc.poll() is not None:
-            # Process exited — but on Windows DETACHED_PROCESS makes poll()
-            # return immediately (0) even though the child is running.
-            # Only treat as failure on non-Windows.
-            if system != "win32":
-                return None
         if is_cdp_ready(port=port):
             return proc
+        if not is_windows and proc.poll() is not None:
+            return None  # Process exited on non-Windows
         time.sleep(1.0)
 
-    # 超时: 进程可能还在但 CDP 没就绪
-    if proc.poll() is None:
-        return proc  # Still running, maybe CDP will come up later
-    return None
+    # 超时: Windows 上 cmd 进程已退出但 GeoGebra 可能还在启动
+    if is_windows:
+        return proc  # Assume GeoGebra is still starting
+    return proc if proc.poll() is None else None
 
 
 # ── 重启策略 ──
@@ -236,7 +234,13 @@ def ensure_geogebra_running(port: int = None) -> bool:
             if proc is None:
                 return False
 
-    return is_cdp_ready(port=port) or (proc is not None and proc.poll() is None)
+    if is_cdp_ready(port=port):
+        return True
+    # On Windows with cmd /c start, the launcher process exits immediately
+    # so we can't use proc.poll() to check liveness — rely on CDP check only
+    if sys.platform == "win32" and proc is not None:
+        return True  # Launched successfully, CDP may come up later
+    return proc is not None and proc.poll() is None
 
 
 def geogebra_status_message(port: int = None) -> str:
