@@ -1,0 +1,13 @@
+interface:
+  display_name: "GeoGebra Master"
+  short_description: "Use GeoGebra expertly through MCP."
+  default_prompt: "Use $geogebra-master to create a precise GeoGebra construction through the MCP server."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "geogebra"
+      description: "GeoGebra MCP server for controlling GeoGebra Classic 6."
+
+policy:
+  allow_implicit_invocation: true

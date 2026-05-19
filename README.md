@@ -60,7 +60,50 @@ Windows、macOS、Linux 均可使用。
 
 ## 快速开始
 
-### 1. 克隆并安装
+### 1. 自然语言自动安装（推荐）
+
+仿照 MATLAB Agentic Toolkit 的方式，普通用户可以不手动编辑 MCP JSON/TOML。
+
+```bash
+git clone https://github.com/123pc/Geogebra_mcp.git
+cd Geogebra_mcp
+```
+
+然后在这个目录里启动 Claude Code、Codex 或其他 agent，对它说：
+
+```text
+Set up GeoGebra MCP
+```
+
+agent 会根据 [AGENTS.md](AGENTS.md) 和 `skills/geogebra-setup` 的指导运行：
+
+```bash
+python scripts/setup_geogebra_mcp.py
+```
+
+这个脚本会自动完成：
+
+- 安装 Node 依赖：`npm install`
+- 安装 Python 包：`python -m pip install -e .`
+- 写入 Claude Code 全局 MCP 配置
+- 写入 Codex 全局 MCP 配置
+- 注册本仓库提供的 skills
+- 运行 `geogebra-mcp-doctor` 做环境诊断
+
+完成后重启 agent，并在任意项目目录中验证：
+
+```text
+Use GeoGebra MCP to check status and draw a triangle.
+```
+
+如果只想配置某一个客户端：
+
+```bash
+python scripts/setup_geogebra_mcp.py --agent claude
+python scripts/setup_geogebra_mcp.py --agent codex
+```
+
+### 2. 手动安装
 
 ```bash
 git clone https://github.com/123pc/Geogebra_mcp.git
@@ -72,7 +115,7 @@ python -m pip install -e .   # Python 依赖 + 暴露 CLI 命令
 > `npm install` 不可省略——Node 守护进程依赖 `puppeteer-core`。  
 > 也可运行 `python install_wizard.py` 进行交互式安装向导。
 
-### 2. 环境诊断
+### 3. 环境诊断
 
 ```bash
 geogebra-mcp-doctor
@@ -94,7 +137,7 @@ python -m geogebra_mcp.doctor
 
 `cdp_port` 失败是正常的——下面启动 GeoGebra 即可解决。
 
-### 3. 启动 GeoGebra（调试模式）
+### 4. 启动 GeoGebra（调试模式）
 
 每次使用前需要以调试模式启动 GeoGebra：
 
@@ -113,7 +156,7 @@ open -a "GeoGebra Classic 6" --args --remote-debugging-port=9222
 geogebra-classic --remote-debugging-port=9222
 ```
 
-### 4. 配置 AI 客户端
+### 5. 配置 AI 客户端
 
 在你的 MCP 配置文件中加入：
 

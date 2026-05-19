@@ -1,0 +1,7 @@
+interface:
+  display_name: "GeoGebra Setup"
+  short_description: "Install and configure GeoGebra MCP."
+  default_prompt: "Use $geogebra-setup to set up GeoGebra MCP for this agent."
+
+policy:
+  allow_implicit_invocation: true

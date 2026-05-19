@@ -38,7 +38,7 @@ Build in dependency order:
 
 Prefer ASCII object names and labels (`alpha`, `beta`, `O1`, `O2`, `crank`) unless the environment is known to preserve Unicode reliably.
 
-## Self-Verification — MANDATORY
+## Self-Verification - MANDATORY
 
 After sending all construction commands and before telling the user "done", call `geogebra_get_objects` to verify the construction actually has content.
 
@@ -51,8 +51,8 @@ Expected response: {"success": true, "objects": [...], "count": N}
 
 | count | Action |
 |-------|--------|
-| 0 | **The construction is empty.** Do NOT claim success. Report: "The GeoGebra construction appears empty — commands may have failed silently. Let me retry with simplified commands." Retry from `geogebra_new_construction`. |
-| 1–2 | **Suspiciously low.** The user probably can't see the intended drawing. Report the low count, list the objects found, and retry or ask the user what they expected. |
+| 0 | **The construction is empty.** Do NOT claim success. Report: "The GeoGebra construction appears empty - commands may have failed silently. Let me retry with simplified commands." Retry from `geogebra_new_construction`. |
+| 1-2 | **Suspiciously low.** The user probably can't see the intended drawing. Report the low count, list the objects found, and retry or ask the user what they expected. |
 | 3+ | **Acceptable.** Proceed to save and export. |
 
 **If verification fails after 2 attempts:** be honest with the user. Report the commands that were sent, the objects that GeoGebra returned, and suggest running `geogebra-mcp-doctor` to check the environment.
@@ -183,8 +183,8 @@ Segment(O,P)
 
 Then make the slider visible and start animation:
 
-1. `geogebra_set_appearance(label="alpha", visible=true, label_visible=true)` — makes the slider visible in the Graphics view.
-2. `geogebra_animate(label="alpha", animate=true, speed=0.5)` — starts autoplay so the user sees motion immediately.
+1. `geogebra_set_appearance(label="alpha", visible=true, label_visible=true)` - makes the slider visible in the Graphics view.
+2. `geogebra_animate(label="alpha", animate=true, speed=0.5)` - starts autoplay so the user sees motion immediately.
 
 ## Mechanism Patterns
 
@@ -192,12 +192,12 @@ For mechanisms, prefer the proven circle-intersection pattern. Validate geometry
 
 ### ANIMATION IS MANDATORY FOR MECHANISMS
 
-Every mechanism drawing MUST have an animated driver slider. Without this, the user sees a static diagram — NOT a mechanism. Follow these non-negotiable rules:
+Every mechanism drawing MUST have an animated driver slider. Without this, the user sees a static diagram - NOT a mechanism. Follow these non-negotiable rules:
 
-1. **Always create an angle slider as the FIRST command**: `alpha=30 deg` (or `θ=30 deg`, `φ=45 deg`). This creates a slider that cycles from 0° to 360°.
+1. **Always create an angle slider as the FIRST command**: `alpha=30 deg` (or `theta=30 deg`, `phi=45 deg`). This creates a slider that cycles from 0 deg to 360 deg.
 2. **Define moving joints using the slider**: `A=O1+(2*cos(alpha),2*sin(alpha))`. Points defined this way MOVE when the slider animates.
 3. **Make the slider visible**: GeoGebra hides sliders by default in the Graphics view. After creating the slider, call `geogebra_set_appearance(label="alpha", visible=true, label_visible=true)` so the user can see and interact with the slider.
-4. **After ALL commands, start the animation playing**: call `geogebra_animate(label="alpha", animate=true, speed=0.5)`. The `animate=true` parameter sets the slider to autoplay — the user sees the mechanism moving immediately without clicking anything. Without this call, the mechanism stays frozen.
+4. **After ALL commands, start the animation playing**: call `geogebra_animate(label="alpha", animate=true, speed=0.5)`. The `animate=true` parameter sets the slider to autoplay - the user sees the mechanism moving immediately without clicking anything. Without this call, the mechanism stays frozen.
 5. **Verify animation is running**: the slider must have `animate=true`, not just exist. A slider without `geogebra_animate` is a static number. The user should see the mechanism moving automatically in GeoGebra.
 
 Crank-rocker:

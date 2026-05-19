@@ -1,0 +1,7 @@
+interface:
+  display_name: "Use GeoGebra MCP"
+  short_description: "Set up and use GeoGebra MCP from AI agents."
+  default_prompt: "Use $use-geogebra-mcp to diagnose GeoGebra MCP and draw a construction through the MCP server."
+
+policy:
+  allow_implicit_invocation: true
