@@ -141,9 +141,16 @@ python -m geogebra_mcp.doctor
 
 每次使用前需要以调试模式启动 GeoGebra：
 
-**Windows：** 双击 `start_geogebra.bat`，或一行命令：
+**Windows：** 双击 `start_geogebra.bat`，或在终端中执行：
+
+CMD：
 ```cmd
 for /d %v in ("%LOCALAPPDATA%\GeoGebra_6\app-*") do start "" "%~fv\GeoGebra.exe" --remote-debugging-port=9222
+```
+
+PowerShell：
+```powershell
+$ggb = Get-ChildItem "$env:LOCALAPPDATA\GeoGebra_6\app-*\GeoGebra.exe" | Sort-Object -Descending | Select-Object -First 1; Start-Process $ggb.FullName "--remote-debugging-port=9222"
 ```
 
 **macOS：**
