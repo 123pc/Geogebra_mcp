@@ -1,0 +1,13 @@
+{
+  "name": "geogebra-math-apps-bundle",
+  "source": "https://download.geogebra.org/package/geogebra-math-apps-bundle",
+  "description": "Official GeoGebra Math Apps Bundle for offline Web Runtime operation",
+  "version": "latest",
+  "mode": "downloaded-cache",
+  "html5Codebase": "GeoGebra/HTML5/5.0/web3d/",
+  "requiredFiles": [
+    "GeoGebra/deployggb.js",
+    "GeoGebra/HTML5/5.0/web3d/web3d.nocache.js"
+  ],
+  "notes": "The bundle is downloaded during setup, not committed to this repository. Verify GeoGebra's license and redistribution terms at https://www.geogebra.org/license before redistributing a package containing the bundle. The HTML5 codebase version (5.0 vs 5.2) depends on the downloaded bundle version."
+}

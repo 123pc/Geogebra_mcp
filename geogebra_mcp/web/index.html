@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GeoGebra MCP Web Runtime</title>
+  <style>
+    html, body, #ggb-container {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+    }
+  </style>
+  <script>
+    window.__ggbBundle = new URLSearchParams(window.location.search).get('bundle') || 'cdn';
+    window.__ggbWidth = Number(new URLSearchParams(window.location.search).get('width')) || 1200;
+    window.__ggbHeight = Number(new URLSearchParams(window.location.search).get('height')) || 800;
+  </script>
+  <script src="/runtime_loader.js"></script>
+</head>
+<body>
+  <div id="ggb-container"></div>
+</body>
+</html>

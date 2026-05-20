@@ -223,3 +223,39 @@ class TestDesignJsonParsing:
         design = {"perspective": "G"}
         cmds = design.get("commands", [])
         assert cmds == []
+
+
+# ── Task 1.1: Backend env propagation ──
+
+
+class TestBackendEnvPropagation:
+    def test_env_passes_geogebra_backend_to_subprocess(self):
+        """Verify start() passes GEOGEBRA_BACKEND into daemon environment."""
+        import os, json
+        old_backend = os.environ.get("GEOGEBRA_BACKEND")
+        old_port = os.environ.get("GEOGEBRA_CDP_PORT")
+        try:
+            os.environ["GEOGEBRA_BACKEND"] = "web"
+            os.environ["GEOGEBRA_CDP_PORT"] = "9333"
+            from geogebra_mcp.server import GeoGebraDaemonClient
+            client = GeoGebraDaemonClient(cdp_port=9333)
+            captured_env = {}
+            def fake_popen(args, **kwargs):
+                captured_env.update(kwargs.get("env", {}))
+                raise RuntimeError("stop")
+            with patch("subprocess.Popen", fake_popen):
+                try:
+                    client.start()
+                except RuntimeError:
+                    pass
+            assert captured_env.get("GEOGEBRA_BACKEND") == "web"
+            assert captured_env.get("GEOGEBRA_CDP_PORT") == "9333"
+        finally:
+            if old_backend is not None:
+                os.environ["GEOGEBRA_BACKEND"] = old_backend
+            else:
+                os.environ.pop("GEOGEBRA_BACKEND", None)
+            if old_port is not None:
+                os.environ["GEOGEBRA_CDP_PORT"] = old_port
+            else:
+                os.environ.pop("GEOGEBRA_CDP_PORT", None)

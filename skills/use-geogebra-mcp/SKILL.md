@@ -1,6 +1,6 @@
 ---
 name: use-geogebra-mcp
-description: Use when a user mentions use_geogebra_mcp or wants Claude Code, Codex, or another MCP-capable AI agent to set up, diagnose, or use the GeoGebra MCP server to control GeoGebra Classic 6, draw geometry, plot functions, build animated mechanisms, save .ggb files, or export PNG screenshots.
+description: Use when a user mentions use_geogebra_mcp or wants Claude Code, Codex, or another MCP-capable AI agent to set up, diagnose, or use the GeoGebra MCP server to control GeoGebra (Web Runtime by default, Classic 6 optional), draw geometry, plot functions, build animated mechanisms, save .ggb files, or export PNG screenshots.
 metadata:
   short-description: Use GeoGebra MCP from AI agents
 ---
@@ -10,7 +10,7 @@ metadata:
 Use this skill when the user wants an AI coding agent to operate GeoGebra through this project's MCP server. The intended path is:
 
 ```text
-AI agent -> MCP stdio -> Python geogebra-mcp-server -> Node daemon -> GeoGebra Classic 6 CDP -> ggbApplet API
+AI agent -> MCP stdio -> Python geogebra-mcp-server -> Node daemon -> GeoGebra Web Runtime or Classic 6 CDP -> ggbApplet API
 ```
 
 ## Core Rules
@@ -45,8 +45,10 @@ geogebra-mcp-doctor
 Expected `geogebra-mcp-doctor` behavior:
 
 - `[OK] daemon_js` and `[OK] package_json` mean package resources are present.
-- `[OK] geogebra_install` means GeoGebra Classic 6 was found.
-- `[FAIL] cdp_port: localhost:9222` is acceptable if GeoGebra is currently closed; the first MCP tool call should auto-launch it.
+- `[OK] geogebra_install` means GeoGebra Classic 6 was found (desktop backend only; skipped for Web Runtime).
+- `[OK] puppeteer` means Chromium can be launched for Web Runtime.
+- `[FAIL] cdp_port: localhost:9222` is acceptable for desktop backend if GeoGebra is currently closed; the first MCP tool call should auto-launch it.
+- For Web Runtime failures, check `[OK] web_assets` and `[OK] puppeteer`; run `node scripts/smoke_web_runtime.js`.
 
 If `geogebra-mcp-doctor` is missing, install the package first:
 
@@ -98,13 +100,18 @@ Restart the MCP client after changing configuration.
 
 ## Environment Variables
 
-Default CDP port:
+Default backend is Web Runtime (no GeoGebra Classic 6 required):
 
 ```bash
-GEOGEBRA_CDP_PORT=9222
+GEOGEBRA_BACKEND=auto
 ```
 
-Use a custom port only if all sides agree: MCP server environment, GeoGebra launch flag, and diagnostics.
+Use desktop only when explicitly requested by the user:
+
+```bash
+GEOGEBRA_BACKEND=desktop
+GEOGEBRA_CDP_PORT=9222
+```
 
 Safe restart flag:
 
@@ -113,6 +120,15 @@ GEOGEBRA_RESTART_EXISTING=1
 ```
 
 Only use this when the user has saved existing GeoGebra work. Without this flag, the server should not kill an existing GeoGebra process.
+
+Offline Web Runtime (Phase 2):
+
+```bash
+GEOGEBRA_WEB_BUNDLE=local
+GEOGEBRA_WEB_BUNDLE_PATH=/path/to/bundle  # optional override
+```
+
+If Web Runtime fails with CDN/network errors, suggest `GEOGEBRA_WEB_BUNDLE=local` and run `python scripts/setup_geogebra_web_bundle.py` to download the bundle. Use CDN mode (`GEOGEBRA_WEB_BUNDLE=cdn`) for the smallest install.
 
 ## First-Use Workflow
 
@@ -195,11 +211,11 @@ Useful prompts the AI agent should be able to handle:
 If the MCP client says GeoGebra is disconnected:
 
 1. Run `geogebra-mcp-doctor`.
-2. If only `cdp_port` fails and GeoGebra is closed, try a first MCP tool call again; auto-launch should open GeoGebra.
-3. If `geogebra_install` fails, install GeoGebra Classic 6 desktop edition.
+2. For Web Runtime (default): check `[OK] web_assets`, `[OK] puppeteer`. Run `node scripts/smoke_web_runtime.js` for detailed diagnostics. If CDN is unreachable, run `python scripts/setup_geogebra_web_bundle.py`, set `GEOGEBRA_WEB_BUNDLE=local`, and rerun `node scripts/smoke_web_runtime.js`. Desktop backend is optional and only needed when the user explicitly wants Classic 6.
+3. For desktop backend (`GEOGEBRA_BACKEND=desktop`): if only `cdp_port` fails and GeoGebra is closed, try a first MCP tool call again; auto-launch should open GeoGebra. If `geogebra_install` fails, install GeoGebra Classic 6 desktop edition.
 4. If `node` or `npm` fails, install Node.js and rerun `npm install`.
 5. If `daemon_js` or `package_json` fails, reinstall the Python package or run from the source repository.
-6. If GeoGebra is already open but not controllable, ask the user to save their work. Then either close GeoGebra manually or set `GEOGEBRA_RESTART_EXISTING=1` and retry.
+6. If GeoGebra is already open but not controllable (desktop backend), ask the user to save their work. Then either close GeoGebra manually or set `GEOGEBRA_RESTART_EXISTING=1` and retry.
 
 If the first `geogebra_status` returns `connected:false` without any auto-launch attempt, the server is outdated. Update to a version that includes status cold-start auto-launch.
 

@@ -59,4 +59,8 @@ geogebra_mcp = [
     "geogebra_bridge.js",
     "package.json",
     "package-lock.json",
+    "web/index.html",
+    "web/runtime.js",
+    "web/runtime_loader.js",
+    "web/bundle_manifest.json",
 ]

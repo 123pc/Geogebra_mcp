@@ -5,4 +5,8 @@ include geogebra_mcp/geogebra_daemon.js
 include geogebra_mcp/geogebra_bridge.js
 include geogebra_mcp/package.json
 include geogebra_mcp/package-lock.json
+include geogebra_mcp/web/index.html
+include geogebra_mcp/web/runtime.js
+include geogebra_mcp/web/runtime_loader.js
+include geogebra_mcp/web/bundle_manifest.json
 recursive-include tests *.py *.js

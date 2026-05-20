@@ -1,6 +1,6 @@
 ---
 name: geogebra-setup
-description: Automate installation and global configuration of this GeoGebra MCP project for Claude Code, Codex, and other local AI agents. Use when the user asks to set up, install, configure, bootstrap, or register GeoGebra MCP after cloning the repository, especially when they want a MATLAB Agentic Toolkit style natural-language setup without manually editing JSON or TOML configuration files.
+description: Automate installation and global configuration of this GeoGebra MCP project for Claude Code, Codex, and other local AI agents. Use when the user asks to set up, install, configure, bootstrap, or register GeoGebra MCP after cloning the repository. Web Runtime is the default — no GeoGebra desktop install needed.
 ---
 
 # GeoGebra Setup
@@ -27,8 +27,9 @@ Set up GeoGebra MCP from a freshly cloned repository so the user does not need t
 
 The setup script:
 
-- Runs `npm install`.
+- Runs `npm install` (installs Puppeteer + Chromium for Web Runtime).
 - Runs `python -m pip install -e .`.
+- The default runtime is Web Runtime, which launches Chromium and loads GeoGebra Web — no Classic 6 install needed.
 - Writes Claude Code MCP config to `~/.claude/.mcp.json`.
 - Adds `geogebra` to Claude Code `~/.claude/settings.json` allowlist.
 - Writes a managed Codex MCP block to `~/.codex/config.toml`.
@@ -96,4 +97,4 @@ If GeoGebra cannot connect, run:
 python -m geogebra_mcp.doctor
 ```
 
-If only `cdp_port` fails, start with a normal MCP tool call first; auto-launch should handle it. If `geogebra_install` fails, install GeoGebra Classic 6 desktop edition.
+For desktop backend only: if only `cdp_port` fails, start with a normal MCP tool call first; auto-launch should handle it. If `geogebra_install` fails, install GeoGebra Classic 6 desktop edition. For Web Runtime (default), `geogebra_install` and `cdp_port` are skipped — check `web_assets` and `puppeteer` instead.

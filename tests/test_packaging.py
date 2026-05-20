@@ -14,6 +14,14 @@ def test_package_imports_server():
     assert s.__version__ == "0.1.0"
 
 
+def test_web_runtime_assets_exist():
+    import os
+    import geogebra_mcp.server as server
+    package_dir = os.path.dirname(server.DAEMON_JS)
+    assert os.path.exists(os.path.join(package_dir, "web", "index.html"))
+    assert os.path.exists(os.path.join(package_dir, "web", "runtime.js"))
+
+
 def test_package_dir_exists():
     expected = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "geogebra_mcp")
     assert os.path.isdir(expected)

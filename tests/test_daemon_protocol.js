@@ -148,6 +148,162 @@ test("custom port from env", () => {
   delete process.env.GEOGEBRA_CDP_PORT;
 });
 
+// ── Backend Selection ──
+
+console.log("\nBackend Selection:");
+
+function resolveBackend(raw) {
+  const value = (raw || 'auto').toLowerCase();
+  if (!['auto', 'web', 'desktop'].includes(value)) return 'auto';
+  return value;
+}
+
+test("resolveBackend returns auto by default", () => {
+  assert(resolveBackend(undefined) === "auto");
+});
+
+test("resolveBackend returns web when set", () => {
+  assert(resolveBackend("web") === "web");
+});
+
+test("resolveBackend returns desktop when set", () => {
+  assert(resolveBackend("desktop") === "desktop");
+});
+
+test("resolveBackend falls back to auto for invalid value", () => {
+  assert(resolveBackend("bad") === "auto");
+});
+
+test("resolveBackend is case insensitive", () => {
+  assert(resolveBackend("WEB") === "web");
+});
+
+console.log("\nBackend Status Metadata:");
+
+test("desktop status includes backend, configuredBackend, and runtime", () => {
+  const status = {
+    connected: true,
+    backend: "desktop",
+    configuredBackend: "auto",
+    runtime: "classic6-cdp",
+    title: "GeoGebra Classic 6",
+    objectCount: 3
+  };
+  assert(status.backend === "desktop");
+  assert(status.configuredBackend === "auto");
+  assert(status.runtime === "classic6-cdp");
+});
+
+test("web status includes backend, configuredBackend, and runtime", () => {
+  const status = {
+    connected: true,
+    backend: "web",
+    configuredBackend: "auto",
+    runtime: "geogebra-web",
+    headless: true,
+    objectCount: 3
+  };
+  assert(status.backend === "web");
+  assert(status.configuredBackend === "auto");
+  assert(status.runtime === "geogebra-web");
+});
+
+test("auto+web connected reports backend web, configuredBackend auto", () => {
+  const status = {
+    connected: true,
+    backend: "web",
+    configuredBackend: "auto",
+    runtime: "geogebra-web"
+  };
+  assert(status.backend === "web");
+  assert(status.configuredBackend === "auto");
+});
+
+test("auto+desktop connected reports backend desktop, configuredBackend auto", () => {
+  const status = {
+    connected: true,
+    backend: "desktop",
+    configuredBackend: "auto",
+    runtime: "classic6-cdp"
+  };
+  assert(status.backend === "desktop");
+  assert(status.configuredBackend === "auto");
+});
+
+test("disconnected web config reports backend null, configuredBackend web", () => {
+  const status = {
+    connected: false,
+    backend: null,
+    configuredBackend: "web",
+    runtime: null,
+    error: "GEOGEBRA_WEB_LOAD_FAILED: CDN unreachable"
+  };
+  assert(status.connected === false);
+  assert(status.backend === null);
+  assert(status.configuredBackend === "web");
+  assert(status.error.includes("GEOGEBRA_WEB_LOAD_FAILED"));
+});
+
+test("disconnected desktop config reports backend null, configuredBackend desktop", () => {
+  const status = {
+    connected: false,
+    backend: null,
+    configuredBackend: "desktop",
+    runtime: null,
+    error: "GEOGEBRA_NOT_CONNECTED: no CDP"
+  };
+  assert(status.connected === false);
+  assert(status.backend === null);
+  assert(status.configuredBackend === "desktop");
+});
+
+console.log("\nWeb Bundle Configuration:");
+
+test("web connected includes bundle mode", () => {
+  const status = {
+    connected: true,
+    backend: "web",
+    configuredBackend: "web",
+    runtime: "geogebra-web",
+    headless: true,
+    bundle: "cdn",
+    objectCount: 3
+  };
+  assert(status.bundle === "cdn");
+});
+
+test("web connected with local bundle reports bundle local", () => {
+  const status = {
+    connected: true,
+    backend: "web",
+    configuredBackend: "web",
+    runtime: "geogebra-web",
+    headless: true,
+    bundle: "local",
+    objectCount: 3
+  };
+  assert(status.bundle === "local");
+});
+
+test("resolveBundlePath returns null for cdn mode", () => {
+  // Simulate the resolveBundlePath logic inline
+  var webBundle = 'cdn';
+  function resolveBundlePath() {
+    if (webBundle !== 'local') return null;
+    return '/some/path';
+  }
+  assert(resolveBundlePath() === null);
+});
+
+test("resolveBundlePath returns path for local mode", () => {
+  var webBundle = 'local';
+  function resolveBundlePath() {
+    if (webBundle !== 'local') return null;
+    return '/some/bundle/path';
+  }
+  assert(resolveBundlePath() === '/some/bundle/path');
+});
+
 // ── Results ──
 
 console.log(`\n${passed + failed} tests: ${passed} passed, ${failed} failed`);

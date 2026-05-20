@@ -21,22 +21,57 @@
  *   shutdown - 关闭守护进程
  */
 
-const puppeteer = require('puppeteer-core');
+const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
 const readline = require('readline');
 
 const CDP_PORT = process.env.GEOGEBRA_CDP_PORT || '9222';
 const BROWSER_URL = `http://localhost:${CDP_PORT}`;
+
+function resolveBackend(raw) {
+  const value = (raw || 'auto').toLowerCase();
+  if (!['auto', 'web', 'desktop'].includes(value)) return 'auto';
+  return value;
+}
+
+const BACKEND = resolveBackend(process.env.GEOGEBRA_BACKEND);
+const WEB_HEADLESS = process.env.GEOGEBRA_WEB_HEADLESS !== '0';
+const WEB_WIDTH = Number(process.env.GEOGEBRA_WEB_WIDTH || 1200);
+const WEB_HEIGHT = Number(process.env.GEOGEBRA_WEB_HEIGHT || 800);
+const WEB_BUNDLE = (process.env.GEOGEBRA_WEB_BUNDLE || 'cdn').toLowerCase();
+
+function resolveBundlePath() {
+  if (WEB_BUNDLE !== 'local') return null;
+  if (process.env.GEOGEBRA_WEB_BUNDLE_PATH) return process.env.GEOGEBRA_WEB_BUNDLE_PATH;
+  if (process.platform === 'win32') {
+    const base = process.env.LOCALAPPDATA || require('os').homedir();
+    return path.join(base, 'geogebra_mcp', 'web_bundle');
+  }
+  if (process.platform === 'darwin') {
+    return path.join(require('os').homedir(), 'Library', 'Caches', 'geogebra_mcp', 'web_bundle');
+  }
+  const cacheHome = process.env.XDG_CACHE_HOME || path.join(require('os').homedir(), '.cache');
+  return path.join(cacheHome, 'geogebra_mcp', 'web_bundle');
+}
+
+const BUNDLE_PATH = resolveBundlePath();
 
 class GeoGebraDaemon {
   constructor() {
     this.browser = null;
     this.page = null;
     this.connected = false;
+    this.configuredBackend = BACKEND;
+    this.activeBackend = null;
+    this._httpServer = null;
+    this._webPort = null;
+    this._activeBundle = WEB_BUNDLE;
+    this._bundlePath = BUNDLE_PATH;
   }
 
-  async connect() {
+  async _connectDesktop() {
     try {
       this.browser = await puppeteer.connect({
         browserURL: BROWSER_URL,
@@ -47,18 +82,132 @@ class GeoGebraDaemon {
       this.page = pages.find(p => p.url().includes('classic')) || pages[0];
       if (!this.page) throw new Error('No GeoGebra page found');
       this.connected = true;
-      return { connected: true, title: await this.page.title() };
+      this.activeBackend = 'desktop';
+      return { connected: true, backend: 'desktop', configuredBackend: this.configuredBackend, runtime: 'classic6-cdp', title: await this.page.title() };
     } catch (err) {
       this.connected = false;
-      return { connected: false, error: err.message };
+      return { connected: false, backend: null, configuredBackend: this.configuredBackend, error: err.message };
     }
+  }
+
+  async _startWebServer() {
+    if (this._httpServer) return this._webPort;
+    const webDir = path.join(__dirname, 'web');
+    const bundleDir = BUNDLE_PATH;
+    const mimeTypes = {
+      '.html': 'text/html', '.js': 'application/javascript',
+      '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml',
+      '.json': 'application/json', '.wasm': 'application/wasm',
+      '.txt': 'text/plain', '.xml': 'application/xml',
+    };
+    return new Promise((resolve, reject) => {
+      this._httpServer = http.createServer((req, res) => {
+        const urlPath = (req.url || '/').split('?')[0];
+        // Serve bundle files from local cache
+        if (urlPath.startsWith('/bundle/') && bundleDir) {
+          const bundleFile = path.resolve(bundleDir, urlPath.slice('/bundle/'.length));
+          if (!bundleFile.startsWith(path.resolve(bundleDir) + path.sep)) { res.writeHead(403); res.end(); return; }
+          try {
+            const content = fs.readFileSync(bundleFile);
+            const ext = path.extname(bundleFile).toLowerCase();
+            res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'application/octet-stream' });
+            res.end(content);
+            return;
+          } catch (_) {
+            res.writeHead(404);
+            res.end('Not found');
+            return;
+          }
+        }
+        // Serve web runtime files
+        let filePath = path.join(webDir, urlPath === '/' ? 'index.html' : urlPath);
+        if (!filePath.startsWith(webDir)) { res.writeHead(403); res.end(); return; }
+        try {
+          const content = fs.readFileSync(filePath);
+          const ext = path.extname(filePath).toLowerCase();
+          res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'application/octet-stream' });
+          res.end(content);
+        } catch (_) {
+          res.writeHead(404);
+          res.end('Not found');
+        }
+      });
+      this._httpServer.on('error', reject);
+      this._httpServer.listen(0, '127.0.0.1', () => {
+        this._webPort = this._httpServer.address().port;
+        resolve(this._webPort);
+      });
+    });
+  }
+
+  async _connectWeb() {
+    try {
+      await this._startWebServer();
+      this.browser = await puppeteer.launch({
+        headless: WEB_HEADLESS,
+        defaultViewport: { width: WEB_WIDTH, height: WEB_HEIGHT },
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      });
+      this.page = await this.browser.newPage();
+      const url = `http://127.0.0.1:${this._webPort}/index.html?width=${WEB_WIDTH}&height=${WEB_HEIGHT}&bundle=${WEB_BUNDLE}`;
+      const gotoOpts = WEB_BUNDLE === 'local'
+        ? { waitUntil: 'networkidle2', timeout: 60000 }
+        : { waitUntil: 'domcontentloaded', timeout: 30000 };
+      await this.page.goto(url, gotoOpts);
+      const loadTimeout = WEB_BUNDLE === 'local' ? 120000 : 30000;
+      await this.page.waitForFunction(
+        'window.__ggbReady === true || window.__ggbError',
+        { timeout: loadTimeout }
+      );
+      const loadError = await this.page.evaluate(() => window.__ggbError);
+      if (loadError) throw new Error(`GEOGEBRA_WEB_LOAD_FAILED: ${loadError}`);
+      this.connected = true;
+      this.activeBackend = 'web';
+      return {
+        connected: true,
+        backend: 'web',
+        configuredBackend: this.configuredBackend,
+        runtime: 'geogebra-web',
+        headless: WEB_HEADLESS,
+        width: WEB_WIDTH,
+        height: WEB_HEIGHT,
+        bundle: WEB_BUNDLE
+      };
+    } catch (err) {
+      this.connected = false;
+      return { connected: false, backend: null, configuredBackend: this.configuredBackend, error: err.message };
+    }
+  }
+
+  async connect() {
+    if (this.configuredBackend === 'web') {
+      return this._connectWeb();
+    }
+    if (this.configuredBackend === 'desktop') {
+      const result = await this._connectDesktop();
+      if (!result.connected) {
+        throw new Error(`GEOGEBRA_NOT_CONNECTED: Cannot connect to GeoGebra at ${BROWSER_URL}: ${result.error}. Start GeoGebra Classic 6 with --remote-debugging-port=${CDP_PORT}`);
+      }
+      return result;
+    }
+    // auto: try web first, then desktop fallback
+    const webResult = await this._connectWeb();
+    if (webResult.connected) return webResult;
+    try {
+      const desktopResult = await this._connectDesktop();
+      if (desktopResult.connected) return desktopResult;
+    } catch (e) { /* ignore */ }
+    return webResult;
   }
 
   async ensureConnected() {
     if (this.connected) return true;
     const result = await this.connect();
     if (!result.connected) {
-      throw new Error(`GEOGEBRA_NOT_CONNECTED: Cannot connect to GeoGebra at ${BROWSER_URL}: ${result.error}. Start GeoGebra Classic 6 with --remote-debugging-port=${CDP_PORT}`);
+      const hint = this.configuredBackend === 'desktop'
+        ? `Start GeoGebra Classic 6 with --remote-debugging-port=${CDP_PORT}`
+        : 'GeoGebra Web Runtime failed to start';
+      throw new Error(`GEOGEBRA_NOT_CONNECTED: ${hint}: ${result.error}`);
     }
     return true;
   }
@@ -133,18 +282,41 @@ class GeoGebraDaemon {
       try {
         await this.connect();
       } catch (e) {
-        return { connected: false, error: 'GeoGebra 未运行或 CDP 端口不可用' };
+        return {
+          connected: false,
+          backend: this.activeBackend,
+          configuredBackend: this.configuredBackend,
+          runtime: this.activeBackend === 'desktop' ? 'classic6-cdp' : this.activeBackend === 'web' ? 'geogebra-web' : null,
+          error: e.message
+        };
       }
     }
     try {
-      const title = await this.page.title();
       const objCount = await this.page.evaluate(() =>
         ggbApplet.getAllObjectNames ? ggbApplet.getAllObjectNames().length : -1
       );
-      return { connected: true, title, objectCount: objCount };
+      const base = {
+        connected: true,
+        backend: this.activeBackend,
+        configuredBackend: this.configuredBackend,
+        runtime: this.activeBackend === 'desktop' ? 'classic6-cdp' : 'geogebra-web',
+        objectCount: objCount
+      };
+      if (this.activeBackend === 'desktop') {
+        try { base.title = await this.page.title(); } catch (_) {}
+      } else {
+        base.headless = WEB_HEADLESS;
+        base.bundle = WEB_BUNDLE;
+      }
+      return base;
     } catch (e) {
       this.connected = false;
-      return { connected: false, error: e.message };
+      return {
+        connected: false,
+        backend: this.activeBackend,
+        configuredBackend: this.configuredBackend,
+        error: e.message
+      };
     }
   }
 
@@ -257,7 +429,11 @@ async function main() {
     animate:    (p) => daemon.setAnimating(p.label, p.animate !== false),
     animate_speed: (p) => daemon.setAnimationSpeed(p.label, p.speed),
     reset_view: ()   => daemon.resetView(),
-    shutdown:   ()   => { process.exit(0); },
+    shutdown:   async () => {
+      if (daemon._httpServer) { await new Promise(r => daemon._httpServer.close(r)); }
+      if (daemon.browser) { await daemon.browser.close().catch(() => {}); }
+      process.exit(0);
+    },
   };
 
   rl.on('line', async (line) => {

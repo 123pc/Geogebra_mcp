@@ -35,5 +35,9 @@ htmlcov/
 # Development plans (do NOT ship)
 PLAN_0.md
 PLAN_1.md
+PLAN_2.md
 
 # Launcher scripts — tracked in repo, do NOT ignore
+
+# Temporary smoke test outputs
+tmp/

@@ -1,6 +1,6 @@
 # GeoGebra MCP Server
 
-让 Claude Code、Codex 和其他 MCP 客户端直接操控 GeoGebra Classic 6——绘制几何构造、函数图像、3D 图形、动态机构，保存 `.ggb`，导出 `.png`。
+让 Claude Code、Codex 和其他 MCP 客户端操控 GeoGebra——绘制几何构造、函数图像、3D 图形、动态机构，保存 `.ggb`，导出 `.png`。默认使用 Web Runtime，无需安装 GeoGebra 桌面版。
 
 > 本项目不是要替代 GeoGebra，而是把 GeoGebra 变成 AI 可以可靠调用的数学可视化后端。
 
@@ -30,17 +30,21 @@
 ## 架构
 
 ```text
-Claude Code / Codex / DeepSeek TUI / ...
-    │
+AI 客户端 (Claude Code / Codex / …)
     │  MCP stdio
     ▼
 Python MCP Server  (geogebra_mcp/server.py)
-    │
     │  subprocess + JSON lines
     ▼
 Node.js daemon  (geogebra_mcp/geogebra_daemon.js)
-    │
-    │  Chrome DevTools Protocol
+    │  Puppeteer（自动启动 Chromium）
+    ▼
+┌──────────────────────────────────────────────┐
+│  GeoGebra Web（默认）                         │
+│  ├─ CDN 模式：从 geogebra.org 在线加载         │
+│  └─ Local 模式：从本地 Math Apps Bundle 加载   │
+└──────────────────────────────────────────────┘
+    │  可选：Chrome DevTools Protocol
     ▼
 GeoGebra Classic 6  桌面版
 ```
@@ -51,10 +55,53 @@ GeoGebra Classic 6  桌面版
 
 - **Python 3.10+**
 - **Node.js v16+** 和 npm
-- **GeoGebra Classic 6** 桌面版（[下载](https://www.geogebra.org/download)）
 - 支持 MCP stdio 的 AI 客户端（Claude Code / Codex / …）
+- 首次使用 Web Runtime 需要网络访问 GeoGebra CDN；Puppeteer 会自动下载 Chromium
 
 Windows、macOS、Linux 均可使用。
+
+> **可选：**如需使用桌面版后端（`GEOGEBRA_BACKEND=desktop`），则需要 [GeoGebra Classic 6](https://www.geogebra.org/download)。
+
+## 默认 Web Runtime
+
+**GeoGebra Classic 6 桌面版不再是必需的。** 默认情况下，MCP Server 会自动启动 Chromium，加载 GeoGebra 网页版，通过 GeoGebra Apps API 控制绘图。用户无需安装或配置任何 GeoGebra 桌面软件。
+
+```bash
+GEOGEBRA_BACKEND=auto   # 默认：优先 Web，失败时回落 desktop
+GEOGEBRA_BACKEND=web    # 仅使用 Web Runtime
+GEOGEBRA_BACKEND=desktop # 仅使用 Classic 6 CDP 桌面版
+GEOGEBRA_WEB_HEADLESS=1 # 无头模式（默认）；=0 显示浏览器窗口
+GEOGEBRA_WEB_BUNDLE=cdn # 默认：从 GeoGebra CDN 加载；=local 使用离线 bundle
+```
+
+> 首次使用 Puppeteer 会自动下载 Chromium。  
+> 离线模式使用 GeoGebra 官方 web bundle。发布包含该 bundle 的软件包前，请查阅 [GeoGebra 许可证](https://www.geogebra.org/license)。
+
+### 离线 Web Runtime
+
+下载 GeoGebra Math Apps Bundle 到本地缓存，实现完全离线运行：
+
+```bash
+# 下载离线 bundle
+python scripts/setup_geogebra_web_bundle.py
+
+# 验证 bundle 完整性
+python scripts/setup_geogebra_web_bundle.py --check
+```
+
+使用离线模式：
+
+```bash
+# Windows
+$env:GEOGEBRA_BACKEND="web"
+$env:GEOGEBRA_WEB_BUNDLE="local"
+geogebra-mcp-doctor
+
+# macOS / Linux
+GEOGEBRA_BACKEND=web GEOGEBRA_WEB_BUNDLE=local geogebra-mcp-doctor
+```
+
+> 适合学校机房、离线机器或网络受限环境。普通用户无需下载 bundle，默认 CDN 模式即可。
 
 ---
 
@@ -108,11 +155,11 @@ python scripts/setup_geogebra_mcp.py --agent codex
 ```bash
 git clone https://github.com/123pc/Geogebra_mcp.git
 cd Geogebra_mcp
-npm install                  # Node 依赖（puppeteer-core）
+npm install                  # Node 依赖（puppeteer，含 Chromium）
 python -m pip install -e .   # Python 依赖 + 暴露 CLI 命令
 ```
 
-> `npm install` 不可省略——Node 守护进程依赖 `puppeteer-core`。  
+> `npm install` 不可省略——Node 守护进程依赖 `puppeteer`（自动管理 Chromium 浏览器）。  
 > 也可运行 `python install_wizard.py` 进行交互式安装向导。
 
 ### 3. 环境诊断
@@ -123,7 +170,7 @@ geogebra-mcp-doctor
 python -m geogebra_mcp.doctor
 ```
 
-预期输出：
+预期输出（Web Runtime 默认）：
 
 ```text
 [OK] python: 3.13.5
@@ -131,15 +178,20 @@ python -m geogebra_mcp.doctor
 [OK] npm
 [OK] daemon_js: .../geogebra_mcp/geogebra_daemon.js
 [OK] package_json: .../geogebra_mcp/package.json
-[OK] geogebra_install: .../GeoGebra.exe
-[FAIL] cdp_port: localhost:9222
+[OK] backend: auto
+[OK] web_assets: .../geogebra_mcp
+[OK] puppeteer: installed
+[SKIP] geogebra_install: not required for backend=auto
+[SKIP] cdp_port: not required for backend=auto
 ```
 
-`cdp_port` 失败是正常的——下面启动 GeoGebra 即可解决。
+> `geogebra_install` 和 `cdp_port` 被跳过是正常的——Web Runtime 不需要 GeoGebra 桌面版。
 
-### 4. 启动 GeoGebra（调试模式）
+### 4. 可选：Desktop 后端（GeoGebra Classic 6 CDP）
 
-每次使用前需要以调试模式启动 GeoGebra：
+仅当设置 `GEOGEBRA_BACKEND=desktop` 时才需要以下步骤。Web Runtime 用户可跳过。
+
+每次使用前需要以调试模式启动 GeoGebra Classic 6：
 
 **Windows：** 双击 `start_geogebra.bat`，或在终端中执行：
 
@@ -245,7 +297,7 @@ AI 在处理绘图请求时应遵循以下步骤：
 
 1. **确认输出路径** — 如果用户没指定保存位置，先问「文件保存在哪里？」
 2. **检查连接** — `geogebra_status`
-3. **未连接时提示** — 告知用户双击 `start_geogebra.bat` 启动 GeoGebra
+3. **未连接时提示** — Web Runtime 会自动启动 Chromium；Desktop 后端需告知用户双击 `start_geogebra.bat` 启动 GeoGebra
 4. **设置视图** — `geogebra_set_view`
 5. **清空画布**（如需） — `geogebra_new_construction`
 6. **发送命令** — 用 `geogebra_run_commands` 或 `geogebra_create_construction`
@@ -296,12 +348,13 @@ AI 在处理绘图请求时应遵循以下步骤：
 
 ## Skills
 
-仓库附带两套 skill，可教 AI 更稳定地使用本 MCP：
+仓库附带三套 skill，教 AI 更稳定地使用本 MCP：
 
 | Skill | 用途 |
 |-------|------|
 | `skills/geogebra-master` | 教 AI 像 GeoGebra 专家一样作图——强制滑块可见、自动播放动画、自验收 |
-| `skills/use-geogebra-mcp` | 教 AI 部署、配置和诊断本 MCP |
+| `skills/use-geogebra-mcp` | 教 AI 部署、配置、诊断本 MCP，以及离线 bundle 的使用 |
+| `skills/geogebra-setup` | 教 AI 一键安装和配置本 MCP（`python scripts/setup_geogebra_mcp.py`） |
 
 ---
 
@@ -309,7 +362,14 @@ AI 在处理绘图请求时应遵循以下步骤：
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `GEOGEBRA_CDP_PORT` | `9222` | GeoGebra 远程调试端口 |
+| `GEOGEBRA_BACKEND` | `auto` | 后端选择：`auto`（优先 Web）、`web`、`desktop` |
+| `GEOGEBRA_WEB_HEADLESS` | `1` | Web Runtime 无头模式：`1`=是，`0`=显示浏览器窗口 |
+| `GEOGEBRA_WEB_WIDTH` | `1200` | Web Runtime 视口宽度 |
+| `GEOGEBRA_WEB_HEIGHT` | `800` | Web Runtime 视口高度 |
+| `GEOGEBRA_WEB_BUNDLE` | `cdn` | Web Runtime 资源加载方式：`cdn`（在线）或 `local`（离线 bundle） |
+| `GEOGEBRA_WEB_BUNDLE_PATH` | 平台默认 | 离线 bundle 缓存目录（覆盖默认路径） |
+| `GEOGEBRA_CDP_PORT` | `9222` | Desktop 后端 CDP 远程调试端口 |
+| `GEOGEBRA_RESTART_EXISTING` | `0` | Desktop 后端：设为 `1` 允许自动重启已有的 GeoGebra |
 
 ---
 
@@ -317,7 +377,9 @@ AI 在处理绘图请求时应遵循以下步骤：
 
 ### `connected: false`
 
-GeoGebra 未以调试模式运行。确保已用 `--remote-debugging-port=9222` 启动（见[快速开始](#快速开始)第 3 步）。
+**Web Runtime（默认）：** 检查网络是否能访问 GeoGebra CDN，Puppeteer/Chromium 是否已安装。运行 `node scripts/smoke_web_runtime.js` 进行诊断。如果 CDN 不可达（如学校机房、离线环境），下载离线 bundle 后设置 `GEOGEBRA_WEB_BUNDLE=local` 即可（见[离线 Web Runtime](#离线-web-runtime)）。
+
+**Desktop 后端（`GEOGEBRA_BACKEND=desktop`）：** GeoGebra 未以调试模式运行。确保已用 `--remote-debugging-port=9222` 启动（见[快速开始](#快速开始)第 4 步）。
 
 ### 动画不动
 
@@ -325,6 +387,7 @@ GeoGebra 未以调试模式运行。确保已用 `--remote-debugging-port=9222` 
 1. 是否创建了角度滑块（`alpha=30 deg`）
 2. 运动点是否依赖滑块（`A=O+(2*cos(alpha),2*sin(alpha))`）
 3. 是否调用了 `geogebra_set_appearance` 使滑块**可见** + `geogebra_animate(label="alpha", animate=true)`
+4. 使用 `geogebra_create_construction` 可自动处理以上步骤
 
 ### AI 画的图和实际不符 / 空白
 
@@ -332,7 +395,7 @@ GeoGebra 未以调试模式运行。确保已用 `--remote-debugging-port=9222` 
 
 ### 已经打开的 GeoGebra 能接管吗？
 
-不能。必须关闭后以 `--remote-debugging-port=9222` 重新启动。
+**Desktop 后端：**不能。必须关闭后以 `--remote-debugging-port=9222` 重新启动。Web Runtime 不受此限制，它会自动启动独立的 Chromium 实例。
 
 ### 能在 macOS / Linux 上用吗？
 
@@ -360,8 +423,16 @@ python update.py
 
 ```bash
 # 运行测试
-python -m pytest -q                     # Python (47 tests)
-node tests/test_daemon_protocol.js      # Node (12 tests)
+python -m pytest -q                     # Python (64 tests)
+node tests/test_daemon_protocol.js      # Node (27 tests)
+
+# Web Runtime 冒烟测试
+node scripts/smoke_web_runtime.js                    # CDN 模式
+GEOGEBRA_WEB_BUNDLE=local node scripts/smoke_web_runtime.js  # 离线模式
+
+# 离线 bundle 管理
+python scripts/setup_geogebra_web_bundle.py          # 下载
+python scripts/setup_geogebra_web_bundle.py --check  # 验证
 
 # 构建 wheel
 python -m build --wheel

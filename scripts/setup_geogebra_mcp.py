@@ -147,6 +147,18 @@ def install_skills() -> None:
             copy_skill(PROJECT_DIR / "skills" / name, root)
 
 
+def run_bundle_setup() -> None:
+    bundle_script = PROJECT_DIR / "scripts" / "setup_geogebra_web_bundle.py"
+    if not bundle_script.exists():
+        print("[WARN] bundle setup script not found, skipping")
+        return
+    print("\nDownloading offline GeoGebra Web Bundle:")
+    result = run([sys.executable, str(bundle_script)], check=False)
+    if result.returncode != 0:
+        print("[WARN] Bundle download failed. CDN mode remains the default.")
+        print("  Rerun: python scripts/setup_geogebra_web_bundle.py")
+
+
 def run_doctor() -> None:
     print("\nRunning environment diagnostics:")
     result = run([sys.executable, "-m", "geogebra_mcp.doctor"], check=False)
@@ -188,6 +200,16 @@ def main() -> None:
         action="store_true",
         help="Do not run geogebra-mcp-doctor after setup.",
     )
+    parser.add_argument(
+        "--with-web-bundle",
+        action="store_true",
+        help="Download GeoGebra Math Apps Bundle for offline Web Runtime.",
+    )
+    parser.add_argument(
+        "--skip-web-bundle",
+        action="store_true",
+        help="Skip web bundle download (default behavior).",
+    )
     args = parser.parse_args()
 
     print("GeoGebra MCP setup")
@@ -198,12 +220,20 @@ def main() -> None:
         configure_agents(args.agent)
     if not args.skip_skills:
         install_skills()
+    if args.with_web_bundle and not args.skip_web_bundle:
+        run_bundle_setup()
     if not args.skip_doctor:
         run_doctor()
 
     print(
         "\nDone. Restart your agent session, then ask: "
         "'Use GeoGebra MCP to check status and draw a triangle.'"
+    )
+    print(
+        "\nGeoGebra Classic 6 is no longer required for the default Web Runtime.\n"
+        "The first use may download Chromium through Puppeteer.\n"
+        "Set GEOGEBRA_BACKEND=desktop to use an existing Classic 6 desktop install.\n"
+        "Run with --with-web-bundle to download offline GeoGebra Math Apps Bundle."
     )
 
 

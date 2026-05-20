@@ -1,5 +1,8 @@
 {
   "dependencies": {
-    "puppeteer-core": "^25.0.2"
+    "puppeteer": "^25.0.2"
+  },
+  "scripts": {
+    "test": "node tests/test_daemon_protocol.js"
   }
 }
