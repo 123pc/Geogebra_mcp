@@ -10,6 +10,103 @@
 
 ---
 
+## 2026-05-18 Acceptance Review: FAILED
+
+Claude Code's previous attempt did **not** satisfy this plan. This section is mandatory reading before any further work.
+
+The previous attempt failed for these concrete reasons:
+
+- The core auto-launch bug was not fixed. In `geogebra_mcp_server.py`, daemon `ready` is still treated as equivalent to GeoGebra being connected, and `_call()` still only invokes `ensure_geogebra_running()` when `_ready` is not set. This is the same failure mode reported from Claude Code: daemon alive, GeoGebra closed, tool call fails, AI asks user to open GeoGebra manually.
+- No false-ready regression test was added. Existing tests still pass because they do not cover the broken behavior.
+- `python -m build --wheel` currently fails because `pyproject.toml` uses an invalid `[tool.setuptools.package-data]` key: `"" = [...]`.
+- The package refactor was not completed. `geogebra_mcp/` exists only as a namespace-like directory with `__pycache__`; it does not contain `server.py`, `auto_launcher.py`, `doctor.py`, `__init__.py`, or packaged JS resources.
+- `geogebra-mcp-doctor` was not implemented and no console script exists for it.
+- `auto_launcher.py` still kills existing GeoGebra processes unconditionally. The required `GEOGEBRA_RESTART_EXISTING` opt-in safety gate is missing.
+- `geogebra_daemon.js` still has no stable `GEOGEBRA_NOT_CONNECTED` marker and no `connect` handler.
+- Structured MCP tools (`geogebra_run_commands`, `geogebra_create_construction`) were not implemented.
+- CI still verifies only the old shallow wheel contents and does not smoke-test installed package resources.
+
+**This is a hard failure, not a partial pass.** Passing the old `37` Python tests and `12` Node protocol tests is not enough. Those tests are currently too shallow and do not prove the user-facing problem is fixed.
+
+### Non-Negotiable Instructions For Claude Code
+
+- Do not claim completion because `python -m pytest -q` passes. The old tests passing proves only that old behavior was not broken.
+- Do not skip Task 1. The false-ready regression test is the guardrail for the exact user-reported bug.
+- Do not leave `pyproject.toml` in a state where `python -m build --wheel` fails.
+- Do not create an empty `geogebra_mcp/` directory and call packaging complete. The package must contain importable runtime modules and JS resources.
+- Do not leave automatic process killing as the default behavior. Existing GeoGebra sessions may contain unsaved work.
+- Do not hand back for review until every command in the Final Verification Checklist has been run fresh and the outputs are reported.
+
+### Required Repair Order
+
+Follow this order exactly:
+
+1. Complete Task 0 to document and cleanly address the failed previous attempt.
+2. Complete Task 1 and prove the false-ready regression test fails before implementation.
+3. Complete Task 2 and prove the same test passes after implementation.
+4. Complete Task 3 before any manual end-to-end testing, so user data is protected.
+5. Complete Task 4 and Task 7 before claiming packaging or PyPI readiness.
+6. Complete Task 5 and Task 8 before claiming the tool is usable for non-expert users.
+7. Only then complete Task 6 structured-tool improvements.
+
+---
+
+## 2026-05-18 Second Acceptance Review: FAILED
+
+Claude Code's second attempt fixed several important items, but it still failed acceptance because the original user-facing scenario is not fully protected.
+
+What improved in the second attempt:
+
+- A real `geogebra_mcp/` package now exists with `server.py`, `auto_launcher.py`, `doctor.py`, JS resources, and `__init__.py`.
+- `python -m build --wheel` succeeds.
+- The wheel includes `geogebra_mcp/geogebra_daemon.js`, `geogebra_mcp/geogebra_bridge.js`, `geogebra_mcp/package.json`, and `geogebra_mcp/server.py`.
+- `python -m pytest -q` passed after installing the declared dependencies: `47 passed`.
+- Node protocol tests passed: `12 passed`.
+- `GEOGEBRA_NOT_CONNECTED`, `connect`, and `GEOGEBRA_RESTART_EXISTING` now exist.
+- `geogebra-mcp-doctor` exists and can run; it correctly reports `[FAIL] cdp_port` when GeoGebra is not currently listening on `localhost:9222`.
+
+Why acceptance still failed:
+
+- `geogebra_status` can still reproduce the original Claude Code failure. If the AI's first tool call is `geogebra_status`, and the daemon returns `{"connected": false}`, `_call("status")` updates `_connected=False` and returns the false status directly. It does **not** call `ensure_geogebra_running()`.
+- This is not theoretical. The review used this simulation:
+
+```bash
+python -c "from geogebra_mcp.server import GeoGebraDaemonClient; import geogebra_mcp.server as s; c=GeoGebraDaemonClient(cdp_port=9222); c._ready.set(); c._connected=False; calls={'ensure':0}; c._write_request_once=lambda method, params=None, timeout=30: {'connected': False, 'error': 'GeoGebra 未运行或 CDP 端口不可用'}; s.ensure_geogebra_running=lambda port=None: calls.__setitem__('ensure', calls['ensure']+1) or True; print(c._call('status')); print('ensure_calls', calls['ensure'])"
+```
+
+It printed:
+
+```text
+{'connected': False, 'error': 'GeoGebra 未运行或 CDP 端口不可用'}
+ensure_calls 0
+```
+
+That is a hard failure. Claude Code commonly checks status before drawing. If status returns `connected:false`, the AI may again tell the user to manually open GeoGebra. That is exactly the behavior this project is supposed to eliminate.
+
+### New Non-Negotiable Requirement
+
+`geogebra_status` must be part of the auto-launch path. A status call in lazy mode must not silently return `connected:false` on first use when GeoGebra is installed and can be launched.
+
+Claude Code must not hand back again until there is a regression test proving:
+
+- daemon `_ready` is set,
+- `_connected` is false,
+- `_write_request_once("status")` returns `{"connected": false}`,
+- `_call("status")` calls `ensure_geogebra_running()`,
+- the daemon restarts or reconnects,
+- the final status is connected or the returned error clearly says auto-launch was attempted and failed.
+
+### Updated Required Repair Order
+
+Continue from the current implementation. Do not redo completed packaging work unless required by tests.
+
+1. Complete **Task 2A** immediately.
+2. Re-run the full verification checklist.
+3. Perform the real Claude Code cold-start manual test.
+4. Only then hand back for review.
+
+---
+
 ## Current Problems and Risks
 
 - Claude Code failure case: when GeoGebra is not open, MCP calls time out or return `connected: false`; the AI then asks the user to open GeoGebra manually.
@@ -80,6 +177,100 @@
 
 - Create: `tests/test_doctor.py`
   - Test diagnostic output without requiring real GeoGebra.
+
+---
+
+## Task 0: Repair The Failed Previous Attempt Baseline
+
+**Files:**
+- Inspect: `geogebra_mcp_server.py`
+- Inspect: `auto_launcher.py`
+- Inspect: `geogebra_daemon.js`
+- Inspect: `pyproject.toml`
+- Inspect: `geogebra_mcp/`
+- Inspect: `tests/test_mcp_server.py`
+
+- [ ] **Step 1: Confirm the previous attempt is currently failing**
+
+Run:
+
+```bash
+python -m build --wheel
+```
+
+Expected current state before repair:
+
+```text
+FAILS with invalid pyproject.toml config: tool.setuptools.package-data
+```
+
+If this command unexpectedly passes, still continue with Step 2 because the auto-launch logic may remain wrong.
+
+- [ ] **Step 2: Confirm the false-ready bug is still present before editing**
+
+Inspect `geogebra_mcp_server.py` and verify whether these two patterns are still present:
+
+```python
+if resp.get('type') == 'ready':
+    self._ready.set()
+```
+
+```python
+if not self._ready.is_set():
+    ensure_geogebra_running(...)
+```
+
+If both patterns exist, write this in the work log:
+
+```text
+Confirmed: daemon readiness is still conflated with GeoGebra connection state.
+```
+
+- [ ] **Step 3: Confirm the package refactor is incomplete**
+
+Run:
+
+```bash
+python -c "import geogebra_mcp; print(geogebra_mcp); import geogebra_mcp.server"
+```
+
+Expected current state before repair:
+
+```text
+ModuleNotFoundError: No module named 'geogebra_mcp.server'
+```
+
+Do not treat the existence of `geogebra_mcp/__pycache__` as a package implementation.
+
+- [ ] **Step 4: Confirm doctor command is missing**
+
+Run:
+
+```bash
+geogebra-mcp-doctor
+```
+
+Expected current state before repair:
+
+```text
+command not found or not recognized
+```
+
+- [ ] **Step 5: Confirm unsafe process killing is still default**
+
+Inspect `auto_launcher.py`. If `ensure_geogebra_running()` still calls `_kill_existing_geogebra()` without checking `GEOGEBRA_RESTART_EXISTING`, write this in the work log:
+
+```text
+Confirmed: existing GeoGebra processes are still killed by default.
+```
+
+- [ ] **Step 6: Do not patch around the failures**
+
+Do not make a tiny `pyproject.toml` edit just to make build pass while leaving the package empty. The correct fix is Task 4: a real package with importable modules and included JS resources.
+
+- [ ] **Step 7: Proceed to Task 1**
+
+After recording the above, continue with Task 1. Do not skip directly to implementation without adding the regression test.
 
 ---
 
@@ -346,6 +537,168 @@ Run:
 ```bash
 git add geogebra_mcp_server.py geogebra_daemon.js tests/test_mcp_server.py tests/test_auto_launcher.py
 git commit -m "fix: auto-launch geogebra when daemon is ready but disconnected"
+```
+
+---
+
+## Task 2A: Fix `geogebra_status` Cold-Start Auto-Launch
+
+**This task was added after the second failed acceptance review. Do it before any remaining tasks.**
+
+**Files:**
+- Modify: `geogebra_mcp/server.py`
+- Test: `tests/test_mcp_server.py`
+
+**Problem:**
+`_call("status")` currently returns `{"connected": false}` directly when the daemon is alive but GeoGebra is closed. That means `geogebra_status` can still make Claude Code ask the user to open GeoGebra manually. This is unacceptable.
+
+- [ ] **Step 1: Add a failing regression test for status cold-start**
+
+Add this test to `tests/test_mcp_server.py` near the existing auto-launch tests:
+
+```python
+def test_status_auto_launches_when_daemon_ready_but_status_disconnected():
+    from geogebra_mcp.server import GeoGebraDaemonClient
+
+    client = GeoGebraDaemonClient(cdp_port=9222)
+    client._ready.set()
+    client._connected = False
+
+    calls = {"ensure": 0, "restart": 0, "attempt": 0}
+
+    def fake_ensure(port):
+        calls["ensure"] += 1
+        assert port == 9222
+        return True
+
+    def fake_restart():
+        calls["restart"] += 1
+        client._connected = True
+
+    def fake_write(method, params=None, timeout=30):
+        calls["attempt"] += 1
+        assert method == "status"
+        if calls["attempt"] == 1:
+            return {"connected": False, "error": "GeoGebra 未运行或 CDP 端口不可用"}
+        return {"connected": True, "title": "GeoGebra Classic 6", "objectCount": 0}
+
+    client._write_request_once = fake_write
+    client._restart = fake_restart
+
+    with patch("geogebra_mcp.server.ensure_geogebra_running", fake_ensure):
+        result = client._call("status")
+
+    assert result["connected"] is True
+    assert calls["ensure"] == 1
+    assert calls["restart"] == 1
+    assert calls["attempt"] == 2
+```
+
+- [ ] **Step 2: Run the new test before implementation and confirm it fails**
+
+Run:
+
+```bash
+python -m pytest tests/test_mcp_server.py::test_status_auto_launches_when_daemon_ready_but_status_disconnected -q
+```
+
+Expected before implementation:
+
+```text
+FAILED
+```
+
+If it passes before implementation, the test is not actually covering the bug. Rewrite the test until it fails against the current code path.
+
+- [ ] **Step 3: Implement status disconnected handling in `_call()`**
+
+Update `_call()` in `geogebra_mcp/server.py` so a status result with `connected: false` is treated as a launchable connection failure on the first attempt.
+
+The behavior must be:
+
+```python
+result = self._write_request_once(method, params, timeout)
+if method == "status" and isinstance(result, dict):
+    self._connected = bool(result.get("connected"))
+    self._last_status = result
+    if not self._connected and not retried:
+        # Attempt auto-launch and retry status once.
+        launched = ensure_geogebra_running(port=self.cdp_port)
+        if launched:
+            self._restart()
+            retried = True
+            continue
+        return {
+            **result,
+            "auto_launch_attempted": True,
+            "auto_launch_succeeded": False,
+        }
+    return result
+```
+
+Important details:
+
+- Do not recurse infinitely.
+- Retry status at most once after auto-launch/restart.
+- Preserve useful status error text.
+- Include `auto_launch_attempted` and `auto_launch_succeeded` when launch was attempted but failed.
+- If launch succeeds and the second status is connected, return the connected status.
+
+- [ ] **Step 4: Keep exception-based auto-launch behavior**
+
+Do not break the existing exception path for `exec`, `batch`, `save`, and other non-status methods. `_looks_like_geogebra_connection_error()` should still trigger auto-launch on `GEOGEBRA_NOT_CONNECTED`.
+
+- [ ] **Step 5: Fix misleading startup log**
+
+In `main()` or equivalent startup code, do not print "Daemon connected to existing GeoGebra" merely because `_ready.is_set()`.
+
+Use this logic:
+
+```python
+if _daemon._ready.is_set() and _daemon._connected:
+    sys.stderr.write("[geogebra-mcp] Daemon connected to existing GeoGebra / 守护进程已连接\n")
+elif _daemon._ready.is_set():
+    sys.stderr.write("[geogebra-mcp] Daemon started but GeoGebra is not connected yet / 守护进程已启动，但 GeoGebra 尚未连接\n")
+else:
+    sys.stderr.write("[geogebra-mcp] Daemon started (waiting for GeoGebra on first use) / 守护进程已启动，等待首次使用\n")
+```
+
+- [ ] **Step 6: Run focused tests**
+
+Run:
+
+```bash
+python -m pytest tests/test_mcp_server.py -q
+```
+
+Expected:
+
+```text
+all tests pass
+```
+
+- [ ] **Step 7: Run the review simulation**
+
+Run:
+
+```bash
+python -c "from geogebra_mcp.server import GeoGebraDaemonClient; import geogebra_mcp.server as s; c=GeoGebraDaemonClient(cdp_port=9222); c._ready.set(); c._connected=False; calls={'ensure':0,'restart':0,'attempt':0}; c._restart=lambda: (calls.__setitem__('restart', calls['restart']+1), setattr(c, '_connected', True)); s.ensure_geogebra_running=lambda port=None: calls.__setitem__('ensure', calls['ensure']+1) or True; c._write_request_once=lambda method, params=None, timeout=30: (calls.__setitem__('attempt', calls['attempt']+1) or ({'connected': False, 'error': 'GeoGebra 未运行或 CDP 端口不可用'} if calls['attempt']==1 else {'connected': True, 'title': 'GeoGebra Classic 6'})); print(c._call('status')); print(calls)"
+```
+
+Expected:
+
+```text
+{'connected': True, 'title': 'GeoGebra Classic 6'}
+{'ensure': 1, 'restart': 1, 'attempt': 2}
+```
+
+- [ ] **Step 8: Commit**
+
+Run:
+
+```bash
+git add geogebra_mcp/server.py tests/test_mcp_server.py
+git commit -m "fix: auto-launch geogebra from disconnected status"
 ```
 
 ---
@@ -1132,11 +1485,15 @@ git commit -m "docs: document first-use auto-launch behavior"
 - [ ] `python -m pytest -q` passes.
 - [ ] `node tests/test_daemon_protocol.js` passes.
 - [ ] `python -m build --wheel` succeeds.
+- [ ] `python -c "import geogebra_mcp.server as s; print(s.DAEMON_JS)"` succeeds.
+- [ ] `python -m pytest tests/test_mcp_server.py::test_status_auto_launches_when_daemon_ready_but_status_disconnected -q` passes.
+- [ ] Status cold-start simulation shows `ensure_geogebra_running()` called once and status retried once.
 - [ ] Wheel contains:
   - `geogebra_mcp/geogebra_daemon.js`
   - `geogebra_mcp/geogebra_bridge.js`
   - `geogebra_mcp/package.json`
   - `geogebra_mcp/server.py`
+- [ ] Installed wheel smoke test succeeds in a clean virtual environment.
 - [ ] `geogebra-mcp-doctor` runs after installing the wheel.
 - [ ] `geogebra-mcp-server` starts in lazy mode when GeoGebra is closed.
 - [ ] First MCP tool call auto-launches GeoGebra instead of asking the user to open it manually.
@@ -1146,9 +1503,41 @@ git commit -m "docs: document first-use auto-launch behavior"
 
 ---
 
+## Automatic Rejection Criteria
+
+The next review must reject the work immediately if any of these are true:
+
+- `python -m build --wheel` fails.
+- `import geogebra_mcp.server` fails.
+- `geogebra-mcp-doctor` is missing.
+- `tests/test_mcp_server.py` does not include a regression test for daemon-ready-but-GeoGebra-disconnected behavior.
+- `tests/test_mcp_server.py` does not include a regression test for status-returned `connected:false` triggering auto-launch.
+- `geogebra_mcp_server.py` still triggers auto-launch only when `_ready` is unset.
+- `geogebra_mcp/server.py` returns `{"connected": false}` from `_call("status")` without attempting auto-launch.
+- startup logging says "connected to existing GeoGebra" when `_ready=True` but `_connected=False`.
+- `auto_launcher.py` still calls `_kill_existing_geogebra()` by default.
+- The wheel does not contain `geogebra_mcp/geogebra_daemon.js`.
+- Claude Code reports "please open GeoGebra manually" during the cold-start manual test.
+- The final handoff says "tests pass" without showing build, wheel, import, doctor, and cold-start evidence.
+
+---
+
 ## Handoff Notes For Claude Code
 
-Implement in task order. Do not skip the failing test in Task 1; it protects against the exact user-facing failure. Prefer small commits after each task. If package restructuring creates import churn, keep root compatibility wrappers so existing users running `python geogebra_mcp_server.py` are not broken immediately.
+Implement in task order. The previous attempt failed because it did not implement the core logic, did not add the required regression test, left packaging broken, and relied on old tests that do not cover the bug. Do not repeat that pattern.
+
+Do not skip the failing test in Task 1; it protects against the exact user-facing failure. Prefer small commits after each task. If package restructuring creates import churn, keep root compatibility wrappers so existing users running `python geogebra_mcp_server.py` are not broken immediately.
+
+When handing the branch back, include:
+
+- A short summary of how daemon liveness is now separated from GeoGebra connection state.
+- The exact regression test name that fails before the fix and passes after the fix.
+- The exact status cold-start regression test name and output.
+- The exact status cold-start simulation output showing `ensure=1`, `restart=1`, and `attempt=2`.
+- The exact files moved into `geogebra_mcp/`.
+- The exact wheel content check output showing JS files are included.
+- The exact safety behavior for `GEOGEBRA_RESTART_EXISTING`.
+- The exact result of a cold-start Claude Code/GeoGebra manual test, including whether GeoGebra was closed at the beginning.
 
 After completing all tasks, hand the branch back for review with:
 
@@ -1157,5 +1546,9 @@ git status --short
 python -m pytest -q
 node tests/test_daemon_protocol.js
 python -m build --wheel
-python -c "import glob, zipfile; wheel=glob.glob('dist/*.whl')[-1]; names=zipfile.ZipFile(wheel).namelist(); assert any(n.endswith('geogebra_mcp/geogebra_daemon.js') for n in names); print('wheel ok')"
+python -c "import geogebra_mcp.server as s; print(s.DAEMON_JS)"
+python -m pytest tests/test_mcp_server.py::test_status_auto_launches_when_daemon_ready_but_status_disconnected -q
+python -c "from geogebra_mcp.server import GeoGebraDaemonClient; import geogebra_mcp.server as s; c=GeoGebraDaemonClient(cdp_port=9222); c._ready.set(); c._connected=False; calls={'ensure':0,'restart':0,'attempt':0}; c._restart=lambda: (calls.__setitem__('restart', calls['restart']+1), setattr(c, '_connected', True)); s.ensure_geogebra_running=lambda port=None: calls.__setitem__('ensure', calls['ensure']+1) or True; c._write_request_once=lambda method, params=None, timeout=30: (calls.__setitem__('attempt', calls['attempt']+1) or ({'connected': False, 'error': 'GeoGebra 未运行或 CDP 端口不可用'} if calls['attempt']==1 else {'connected': True, 'title': 'GeoGebra Classic 6'})); print(c._call('status')); print(calls)"
+python -c "import glob, zipfile; wheel=glob.glob('dist/*.whl')[-1]; names=zipfile.ZipFile(wheel).namelist(); assert any(n.endswith('geogebra_mcp/geogebra_daemon.js') for n in names); assert any(n.endswith('geogebra_mcp/package.json') for n in names); print('wheel ok')"
+geogebra-mcp-doctor
 ```
