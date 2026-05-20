@@ -344,6 +344,18 @@ GeoGebra 未以调试模式运行。确保已用 `--remote-debugging-port=9222` 
 
 ---
 
+## 更新
+
+在项目目录下运行：
+
+```bash
+python update.py
+```
+
+该脚本自动执行 `git pull` → `npm install` → `pip install -e .` → 同步 MCP 配置和 skills，无需重新 clone。
+
+---
+
 ## 开发
 
 ```bash

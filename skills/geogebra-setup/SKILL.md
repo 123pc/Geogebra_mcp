@@ -46,6 +46,16 @@ python -m geogebra_mcp.server
 
 This avoids relying on console script PATH visibility after installation.
 
+## Updating
+
+To update an existing installation to the latest version, run from the project directory:
+
+```bash
+python update.py
+```
+
+This pulls the latest `main` branch, reinstalls dependencies, and syncs MCP config and skills without re-cloning.
+
 ## Verification Prompt
 
 After restarting the agent, ask:
