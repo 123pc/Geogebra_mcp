@@ -165,23 +165,30 @@ geogebra-classic --remote-debugging-port=9222
 
 ### 5. 配置 AI 客户端
 
-在你的 MCP 配置文件中加入：
+**推荐：运行自动配置脚本（无需手动编辑 JSON）：**
+
+```bash
+python scripts/setup_geogebra_mcp.py
+```
+
+该脚本自动完成：安装依赖 → 写入 MCP 配置 → 注册 skills → 运行诊断。  
+`--agent claude` 仅配置 Claude Code，`--agent codex` 仅配置 Codex。
+
+**手动配置：** 在你的 MCP 配置文件中加入：
 
 ```json
 {
   "mcpServers": {
     "geogebra": {
-      "command": "geogebra-mcp-server",
-      "args": []
+      "command": "python",
+      "args": ["-m", "geogebra_mcp.server"]
     }
   }
 }
 ```
 
-> 如果 `geogebra-mcp-server` 不在 PATH 中，也可以用源码入口：
-> ```json
-> { "command": "python", "args": ["<仓库路径>/geogebra_mcp_server.py"] }
-> ```
+> `python -m geogebra_mcp.server` 在任何目录都能运行，不依赖仓库路径。  
+> `pip install -e .` 后也可直接用 `geogebra-mcp-server`（如果 Scripts 目录在 PATH 中）。
 
 Claude Code 用户还需在 `settings.json` 中添加：
 
