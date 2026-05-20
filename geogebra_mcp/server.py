@@ -718,6 +718,11 @@ async def geogebra_create_construction(name: str, design: dict, output_dir: str 
      "commands":["O1=(0,0)","O2=(6,0)","α=45°",...],
      "styles":[{"label":"A","color":[1,0,0],"point_size":5},...]}
 
+    Auto-behavior (no manual steps needed):
+    - Auxiliary circles named c1, c2, c3... are automatically hidden.
+    - The animation slider is auto-made visible and set to play.
+    - Construction must use 'c1', 'c2' etc. for circles to be auto-hidden.
+
     Args:
         name: Output filename stem
         design: Dict with perspective, commands, styles, animate, and speed
@@ -760,8 +765,21 @@ async def _create_construction_from_design(name: str, design: dict, output_dir: 
         if 'label_visible' in style:
             d.set_label_visible(lbl, style['label_visible'])
 
+    # ── 自动清理辅助构造对象 ──
+    objects = d.get_objects() or []
+    styled_labels = {s['label'] for s in design.get('styles', [])}
+    for obj in objects:
+        label = str(obj)
+        # 隐藏辅助作图圆（c1, c2, c3...）除非用户显式设置了样式
+        if label not in styled_labels and (label.startswith("c") and label[1:].isdigit()):
+            d.set_visible(label, False)
+
+    # ── 动画滑块：强制可见 + 自动播放 ──
     animate_label = design.get('animate')
     if animate_label:
+        if animate_label not in styled_labels:
+            d.set_visible(animate_label, True)
+            d.set_label_visible(animate_label, True)
         d.animate(animate_label, True)
         d.animate_speed(animate_label, design.get('speed', 0.5))
 

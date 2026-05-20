@@ -200,6 +200,14 @@ Every mechanism drawing MUST have an animated driver slider. Without this, the u
 4. **After ALL commands, start the animation playing**: call `geogebra_animate(label="alpha", animate=true, speed=0.5)`. The `animate=true` parameter sets the slider to autoplay - the user sees the mechanism moving immediately without clicking anything. Without this call, the mechanism stays frozen.
 5. **Verify animation is running**: the slider must have `animate=true`, not just exist. A slider without `geogebra_animate` is a static number. The user should see the mechanism moving automatically in GeoGebra.
 
+### AUXILIARY CIRCLES MUST BE HIDDEN
+
+Construction circles (`c1`, `c2`, etc.) used for intersection calculations are NOT visible in the final mechanism. The user should only see the mechanism links, joints, and ground.
+
+- **When using `geogebra_create_construction`**: the code automatically hides auxiliary circles (`c1`, `c2`, etc.). You do NOT need to add styles for them.
+- **When using `geogebra_run_commands` or `geogebra_exec`**: you MUST explicitly hide auxiliary circles by calling `geogebra_set_appearance(label="c1", visible=false)` and `geogebra_set_appearance(label="c2", visible=false)`.
+- **Auxiliary circle naming**: always use `c1`, `c2`, `c3` (letter 'c' followed by digits) for construction circles so the auto-hide logic catches them.
+
 Crank-rocker:
 
 ```text
