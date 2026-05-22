@@ -10,13 +10,17 @@ Set up GeoGebra MCP from a freshly cloned repository so the user does not need t
 ## Workflow
 
 1. Confirm you are in the GeoGebra MCP repository root. It should contain `pyproject.toml`, `package.json`, `geogebra_mcp/`, and `scripts/setup_geogebra_mcp.py`.
-2. Run:
+2. Ask the user which AI agent(s) to configure. Present the options in natural language:
+   - Claude Code
+   - Codex
+   - Both (default)
 
-   ```bash
-   python scripts/setup_geogebra_mcp.py
-   ```
+   For example: "Which AI agent would you like me to set up GeoGebra MCP for? Claude Code, Codex, or both?" Wait for the user's response before proceeding.
 
-3. If the current agent only wants one client configured, pass `--agent claude` or `--agent codex`.
+3. Run the setup script with the appropriate `--agent` flag based on the user's choice:
+   - Claude Code only: `python scripts/setup_geogebra_mcp.py --agent claude`
+   - Codex only: `python scripts/setup_geogebra_mcp.py --agent codex`
+   - Both: `python scripts/setup_geogebra_mcp.py --agent all`
 4. If dependencies are already installed, pass `--skip-deps`.
 5. If the environment blocks network or package installation, request approval and rerun the same script.
 6. Treat `geogebra-mcp-doctor` returning non-zero as acceptable when the only failing check is `cdp_port`; GeoGebra may be closed until the first MCP tool call.

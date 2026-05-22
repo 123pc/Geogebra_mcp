@@ -29,25 +29,9 @@
 
 ## 架构
 
-```text
-AI 客户端 (Claude Code / Codex / …)
-    │  MCP stdio
-    ▼
-Python MCP Server  (geogebra_mcp/server.py)
-    │  subprocess + JSON lines
-    ▼
-Node.js daemon  (geogebra_mcp/geogebra_daemon.js)
-    │  Puppeteer（自动启动 Chromium）
-    ▼
-┌──────────────────────────────────────────────┐
-│  GeoGebra Web（默认）                         │
-│  ├─ CDN 模式：从 geogebra.org 在线加载         │
-│  └─ Local 模式：从本地 Math Apps Bundle 加载   │
-└──────────────────────────────────────────────┘
-    │  可选：Chrome DevTools Protocol
-    ▼
-GeoGebra Classic 6  桌面版
-```
+<p align="center">
+  <img src="docs/architecture.svg" alt="GeoGebra MCP Architecture" width="600"/>
+</p>
 
 ---
 
