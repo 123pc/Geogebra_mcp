@@ -1,0 +1,7 @@
+flowchart TD
+    A["AI 客户端<br/>(Claude Code / Codex / …)"] -->|MCP stdio| B["Python MCP Server<br/>(geogebra_mcp/server.py)"]
+    B -->|subprocess + JSON lines| C["Node.js daemon<br/>(geogebra_mcp/geogebra_daemon.js)"]
+    C -->|"Puppeteer (自动启动 Chromium)"| D["GeoGebra Web (默认)"]
+    D --> E["CDN 模式<br/>从 geogebra.org 在线加载"]
+    D --> F["Local 模式<br/>从本地 Math Apps Bundle 加载"]
+    C -.->|"可选: Chrome DevTools Protocol"| G["GeoGebra Classic 6 桌面版"]

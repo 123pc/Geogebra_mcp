@@ -12,16 +12,20 @@ This skill follows the official GeoGebra tutorial structure: Graphing, Geometry,
 ## First Contact
 
 1. **Ask the user where to save output files before starting.** If the user hasn't specified an output directory or `.ggb` file path, ask: "Where should I save the .ggb file?" Do NOT proceed with construction until this is confirmed.
-2. Call `geogebra_status` first for any real drawing task.
-3. GeoGebra must already be running with `--remote-debugging-port=9222`. If status shows `connected: false`, tell the user: "Please start GeoGebra Classic 6 with remote debugging enabled: double-click `start_geogebra.bat` or run `GeoGebra.exe --remote-debugging-port=9222`. Then I'll continue."
-4. If status still reports disconnected, suggest `geogebra-mcp-doctor`.
-5. Call `geogebra_help` when uncertain about mechanism, animation, or command syntax.
-6. Prefer structured tools:
+2. **Ask the user whether to use online (CDN) or local (offline bundle) GeoGebra.** Present the options in natural language:
+   - Online mode: loads GeoGebra from the CDN (requires internet, always up-to-date)
+   - Local mode: uses a cached offline bundle (works without internet, needs prior download)
+   If the user chooses local mode, set `GEOGEBRA_WEB_BUNDLE=local` before proceeding. If online, use the default CDN mode.
+3. Call `geogebra_status` first for any real drawing task.
+4. **For desktop backend only** (`GEOGEBRA_BACKEND=desktop`): GeoGebra must already be running with `--remote-debugging-port=9222`. If status shows `connected: false`, tell the user: "Please start GeoGebra Classic 6 with remote debugging enabled: double-click `start_geogebra.bat` or run `GeoGebra.exe --remote-debugging-port=9222`. Then I'll continue." For Web Runtime (default), this step does not apply — the daemon launches Chromium automatically.
+5. If status still reports disconnected, suggest `geogebra-mcp-doctor`.
+6. Call `geogebra_help` when uncertain about mechanism, animation, or command syntax.
+7. Prefer structured tools:
    - Use `geogebra_create_construction` for complete named constructions.
    - Use `geogebra_run_commands` for ordered command batches.
    - Use `geogebra_exec` only for one-off commands or quick repair.
-7. **After all commands, call `geogebra_get_objects` to verify the construction is not empty.**
-8. If verification passes, save with `geogebra_save` and optionally `geogebra_export_png`.
+8. **After all commands, call `geogebra_get_objects` to verify the construction is not empty.**
+9. If verification passes, save with `geogebra_save` and optionally `geogebra_export_png`.
 
 ## Construction Order
 
